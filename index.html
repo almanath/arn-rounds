@@ -225,6 +225,20 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 </nav>
 
 <script>
+// QR param capture (must be first thing)
+var QR_SITE=null;var QR_CP=null;
+(function(){
+  try{
+    var s=window.location.search||"";
+    if(!s){var h=window.location.href;var q=h.indexOf("?");if(q>-1)s=h.substring(q)}
+    if(s&&s.length>1){
+      var p={};var pairs=s.substring(1).split("&");
+      for(var i=0;i<pairs.length;i++){var kv=pairs[i].split("=");if(kv.length===2)p[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1])}
+      if(p.site)QR_SITE=p.site;
+      if(p.checkpoint)QR_CP=p.checkpoint;
+    }
+  }catch(e){}
+})();
 // ===== Firebase (safe stubs + deferred loading) =====
 var fbReady=false;var fbDb=null;var fbApp=null;
 var firebaseConfig={apiKey:"AIzaSyB4ISuO6fDwQCoUSOdFUOfIAmLK81UOqyM",authDomain:"arn-rounds-c4012.firebaseapp.com",databaseURL:"https://arn-rounds-c4012-default-rtdb.europe-west1.firebasedatabase.app",projectId:"arn-rounds-c4012",storageBucket:"arn-rounds-c4012.firebasestorage.app",messagingSenderId:"1089416867317",appId:"1:1089416867317:web:e771a459333dff20e904bc"};
@@ -882,9 +896,12 @@ function seed(){
 // App startup
 function startApp(){
   if(appStarted)return;appStarted=true;
-  // Always seed and render immediately so the page is never blank
+  // If QR params present, switch site first
+  if(QR_SITE){curSite=QR_SITE}
   seed();
   renderAll();
+  // Open form for QR checkpoint
+  if(QR_SITE&&QR_CP){setTimeout(function(){oForm(QR_CP)},200)}
   // Then try IndexedDB for persistence
   try{
     openDB(function(){
@@ -897,36 +914,7 @@ function startApp(){
 startApp();
 
 // URL parameter handling — when a QR code is scanned
-function checkQRParams(){
-  try{
-    // Try window.location.search first
-    var search=window.location.search||"";
-    // Fallback: check full URL for ? in case search is empty
-    if(!search||search.length<2){
-      var full=window.location.href||"";
-      var qi=full.indexOf("?");
-      if(qi>-1)search=full.substring(qi);
-    }
-    if(!search||search.length<2)return;
-    var params={};
-    var pairs=search.substring(1).split("&");
-    for(var i=0;i<pairs.length;i++){
-      var kv=pairs[i].split("=");
-      if(kv.length===2)params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]);
-    }
-    if(params.site&&params.checkpoint){
-      var site=params.site;var cp=params.checkpoint;
-      var validSite=false;
-      for(var j=0;j<SITES.length;j++){if(SITES[j]===site){validSite=true;break}}
-      if(validSite){
-        curSite=site;
-        renderAll();
-        // Small delay to ensure DOM is ready
-        setTimeout(function(){oForm(cp)},100);
-      }
-    }
-  }catch(e){console.warn("QR params error:",e)}
-}
+function checkQRParams(){}
 checkQRParams();
 </script>
 
