@@ -71,8 +71,6 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 @media print{body{background:#fff;color:#000;padding:0}.page,.hdr,.nav,.notif,.sov{display:none!important}#page-qr{display:block!important;padding:10px}
 .qr-grid{grid-template-columns:repeat(3,1fr);gap:8px}.qr-card{border:1px solid #ccc;break-inside:avoid}.site-sel,.flts,.sh,.sx{display:none!important}}
 </style>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="hdr" id="mainHdr">
@@ -193,14 +191,21 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   </div>
   <div class="card" id="proxyCard">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-user-clock" style="color:var(--pri);margin-right:3px"></i> Proxy Delegation</div>
-    <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Assign proxy for view access during absence.</p>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Assign a proxy for manager view access. A temporary 4-digit PIN will be generated.</p>
     <div style="display:flex;gap:5px;flex-wrap:wrap">
-      <select class="sx" style="flex:1;min-width:70px;margin-bottom:0" id="proxySiteSelect"></select>
-      <input type="text" class="sx" style="flex:1;min-width:80px;margin-bottom:0" placeholder="Proxy alias...">
+      <select class="sx" style="flex:1;min-width:70px;margin-bottom:0" id="proxySiteSelect2"></select>
+      <input type="text" class="sx" style="flex:1;min-width:80px;margin-bottom:0" id="proxyAlias" placeholder="Proxy alias..." oninput="lookupProxy()">
     </div>
-    <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
-      <input type="date" class="sx" style="flex:1;min-width:100px;margin-bottom:0"><input type="date" class="sx" style="flex:1;min-width:100px;margin-bottom:0">
-      <button class="sub-btn" style="width:auto;padding:8px 12px;margin-top:0;font-size:11px">Assign</button>
+    <div id="proxyLookupRes" style="display:none;font-size:10px;color:var(--ok);margin:3px 0"></div>
+    <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap;align-items:center">
+      <div style="flex:1;min-width:100px"><label style="font-size:9px;color:var(--muted)">Start</label><input type="date" class="sx" style="margin-bottom:0" id="proxyStart"></div>
+      <div style="flex:1;min-width:100px"><label style="font-size:9px;color:var(--muted)">End</label><input type="date" class="sx" style="margin-bottom:0" id="proxyEnd"></div>
+    </div>
+    <button class="sub-btn" style="margin-top:8px;font-size:12px" onclick="assignProxy()"><i class="fa-solid fa-user-plus"></i> Assign Proxy</button>
+    <div id="proxyMsg" style="display:none;margin-top:6px;font-size:10px;padding:6px;border-radius:var(--rs)"></div>
+    <div style="margin-top:10px;border-top:1px solid var(--border);padding-top:8px">
+      <div style="font-size:11px;font-weight:600;margin-bottom:6px">Active Proxies</div>
+      <div id="activeProxies"><div style="font-size:10px;color:var(--muted)">No active proxies</div></div>
     </div>
   </div>
   <button class="sub-btn" style="background:var(--err);margin-top:6px" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
@@ -220,89 +225,14 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 </nav>
 
 <script>
-// ===== Firebase Realtime Database =====
-var firebaseConfig = {
-  apiKey: "AIzaSyB4ISuO6fDwQCoUSOdFUOfIAmLK81UOqyM",
-  authDomain: "arn-rounds-c4012.firebaseapp.com",
-  databaseURL: "https://arn-rounds-c4012-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "arn-rounds-c4012",
-  storageBucket: "arn-rounds-c4012.firebasestorage.app",
-  messagingSenderId: "1089416867317",
-  appId: "1:1089416867317:web:e771a459333dff20e904bc"
-};
-var fbApp=null;var fbDb=null;var fbReady=false;
-try{
-  fbApp=firebase.initializeApp(firebaseConfig);
-  fbDb=firebase.database();
-  fbReady=true;
-  console.log("Firebase connected!");
-}catch(e){console.warn("Firebase init failed:",e)}
+// ===== Firebase (safe stubs + deferred loading) =====
+var fbReady=false;var fbDb=null;var fbApp=null;
+var firebaseConfig={apiKey:"AIzaSyB4ISuO6fDwQCoUSOdFUOfIAmLK81UOqyM",authDomain:"arn-rounds-c4012.firebaseapp.com",databaseURL:"https://arn-rounds-c4012-default-rtdb.europe-west1.firebasedatabase.app",projectId:"arn-rounds-c4012",storageBucket:"arn-rounds-c4012.firebasestorage.app",messagingSenderId:"1089416867317",appId:"1:1089416867317:web:e771a459333dff20e904bc"};
+function fbSaveRound(r){if(!fbReady)return;try{fbDb.ref("rounds/"+r.site+"/"+r.id).set(r)}catch(e){}}
+function fbListenRounds(cb){if(!fbReady){if(cb)cb();return}try{fbDb.ref("rounds").on("value",function(snap){var data=snap.val();rounds=[];if(data){for(var site in data){if(!data.hasOwnProperty(site))continue;var sr=data[site];for(var id in sr){if(!sr.hasOwnProperty(id))continue;rounds.push(sr[id])}}}rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});try{rStatus()}catch(e){}try{uStats()}catch(e){}try{rHist()}catch(e){}try{if(mgrMode)rOverview()}catch(e){}if(cb)cb()})}catch(e){if(cb)cb()}}
+function fbArchiveOld(){if(!fbReady)return;try{var cutoff=Date.now()-(ARCHIVE_DAYS*24*60*60*1000);for(var i=0;i<rounds.length;i++){var r=rounds[i];if(new Date(r.ts).getTime()<cutoff){fbDb.ref("archive/"+r.site+"/"+r.id).set(r);fbDb.ref("rounds/"+r.site+"/"+r.id).remove()}}}catch(e){}}
+function fbLoadArchive(cb){if(!fbReady){if(cb)cb();return}try{fbDb.ref("archive").once("value",function(snap){var data=snap.val();archivedRounds=[];if(data){for(var site in data){if(!data.hasOwnProperty(site))continue;var sr=data[site];for(var id in sr){if(!sr.hasOwnProperty(id))continue;archivedRounds.push(sr[id])}}}archivedRounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});if(cb)cb()})}catch(e){if(cb)cb()}}
 
-// Write a round to Firebase
-function fbSaveRound(r){
-  if(!fbReady)return;
-  fbDb.ref("rounds/"+r.site+"/"+r.id).set(r);
-}
-
-// Listen for real-time changes on all rounds
-function fbListenRounds(cb){
-  if(!fbReady){if(cb)cb();return}
-  fbDb.ref("rounds").on("value",function(snap){
-    var data=snap.val();
-    rounds=[];
-    if(data){
-      for(var site in data){
-        if(!data.hasOwnProperty(site))continue;
-        var siteRounds=data[site];
-        for(var id in siteRounds){
-          if(!siteRounds.hasOwnProperty(id))continue;
-          rounds.push(siteRounds[id]);
-        }
-      }
-    }
-    rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
-    // Re-render current page
-    try{rStatus()}catch(e){}
-    try{uStats()}catch(e){}
-    try{rHist()}catch(e){}
-    try{if(mgrMode)rOverview()}catch(e){}
-    if(cb)cb();
-  });
-}
-
-// Move old rounds to archive in Firebase
-function fbArchiveOld(){
-  if(!fbReady)return;
-  var cutoff=Date.now()-(ARCHIVE_DAYS*24*60*60*1000);
-  for(var i=0;i<rounds.length;i++){
-    var r=rounds[i];
-    if(new Date(r.ts).getTime()<cutoff){
-      fbDb.ref("archive/"+r.site+"/"+r.id).set(r);
-      fbDb.ref("rounds/"+r.site+"/"+r.id).remove();
-    }
-  }
-}
-
-// Load archive from Firebase
-function fbLoadArchive(cb){
-  if(!fbReady){if(cb)cb();return}
-  fbDb.ref("archive").once("value",function(snap){
-    var data=snap.val();
-    archivedRounds=[];
-    if(data){
-      for(var site in data){
-        if(!data.hasOwnProperty(site))continue;
-        var siteRounds=data[site];
-        for(var id in siteRounds){
-          if(!siteRounds.hasOwnProperty(id))continue;
-          archivedRounds.push(siteRounds[id]);
-        }
-      }
-    }
-    archivedRounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
-    if(cb)cb();
-  });
-}
 
 var DIR={
 "uhasania":{n:"Abdul Salam Hasanin",t:"DCEO EOT L3",r:"dceo"},"adilpanh":{n:"Adil Panhwar",t:"DCEO EOT L3",r:"dceo"},
@@ -477,7 +407,7 @@ function doLogin(){}
 function doLogout(){doMgrLogout()}
 
 
-function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h="";for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}el.innerHTML=h}
+function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h='';var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setSite('"+vs[i]+"')\">"+vs[i]+"</button>"}el.innerHTML=h}
 function setSite(s){curSite=s;renderAll()}
 function renderAll(){
   renderStatusSiteSel();renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
@@ -497,6 +427,7 @@ function sp(p){
   if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
   if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
   if(p==="archive"){renderArchSiteSel();rArch()}
+  if(p==="settings"){populateProxySiteSelect();loadProxies()}
   if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
 }
 
@@ -599,7 +530,7 @@ function setR(role,site){var prefix=role==="mgr"?"mgr-":"ce-";var inp=document.g
 
 function renderArchSiteSel(){
   var el=document.getElementById("siteSelArch");if(!el)return;var h="";
-  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===archSite?" active":"")+"' onclick=\"setArchSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===archSite?" active":"")+"' onclick=\"setArchSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
 function setArchSite(s){archSite=s;renderArchSiteSel();rArch()}
@@ -646,7 +577,7 @@ function sAF(f){archFilt=f;rArch()}
 // ===== DCEO Status Page =====
 function renderStatusSiteSel(){
   var el=document.getElementById("siteSelStatus");if(!el)return;var h="";
-  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setSiteSt('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setSiteSt('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
 function setSiteSt(s){curSite=s;renderStatusSiteSel();rStatus()}
@@ -707,31 +638,36 @@ function doMgrLogin(){
   // Check site pins
   for(var i=0;i<SITES.length;i++){
     if(SITE_PINS[SITES[i]]===pin){
-      mgrMode=true;mgrSite=SITES[i];
-      // Determine role
-      if(siteMgrs[SITES[i]]){mgrRole="fm"}
-      if(siteCEs[SITES[i]]){mgrRole="ce"}
-      mgrRole=mgrRole||"fm";
+      mgrMode=true;mgrSite=SITES[i];mgrRole="fm";
       closeMgrLogin();showMgrUI();return;
     }
   }
-  document.getElementById("mgrErr").style.display="block";
+  // Check proxy pins (async)
+  checkProxyPIN(pin,function(site){
+    if(site){
+      mgrMode=true;mgrSite=site;mgrRole="proxy";
+      closeMgrLogin();showMgrUI();return;
+    }
+    document.getElementById("mgrErr").style.display="block";
+  });
 }
 
 function showMgrUI(){
-  // Show manager nav items
   document.getElementById("navOverview").style.display="flex";
   document.getElementById("navQR").style.display="flex";
   document.getElementById("navArchive").style.display="flex";
-  document.getElementById("navSettings").style.display="flex";
+  // Proxy gets view access but not settings/admin
+  if(mgrRole!=="proxy")document.getElementById("navSettings").style.display="flex";
   if(mgrRole==="admin")document.getElementById("navAdmin").style.display="flex";
-  // Update header
   document.getElementById("hdrMgrBtn").style.display="none";
   document.getElementById("hdrUserPill").style.display="flex";
   var lbl=mgrRole==="admin"?"Admin":(mgrSite||"");
+  if(mgrRole==="proxy")lbl=mgrSite+" (Proxy)";
   document.getElementById("hdrUser").textContent=lbl;
-  var rb=document.getElementById("hdrRole");rb.textContent=mgrRole==="admin"?"ADMIN":"MANAGER";rb.className="rb "+(mgrRole==="admin"?"admin":"fm");
-  // If site-specific, lock to that site
+  var rb=document.getElementById("hdrRole");
+  var roleText=mgrRole==="admin"?"ADMIN":mgrRole==="proxy"?"PROXY":"MANAGER";
+  var roleClass=mgrRole==="admin"?"admin":mgrRole==="proxy"?"ce":"fm";
+  rb.textContent=roleText;rb.className="rb "+roleClass;
   if(mgrSite){curSite=mgrSite;archSite=mgrSite}
   sp("overview");
 }
@@ -750,13 +686,9 @@ function doMgrLogout(){
 
 // ===== Manager Overview =====
 function renderOverSiteSel(){
-  if(mgrSite){
-    // Site-locked manager - no selector
-    var el=document.getElementById("siteSelOver");if(el)el.innerHTML="<div class='site-btn active'>"+mgrSite+"</div>";
-    return;
-  }
   var el=document.getElementById("siteSelOver");if(!el)return;var h="";
-  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setOverSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  var vs=getVisibleSites();
+  for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setOverSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
 function setOverSite(s){curSite=s;renderOverSiteSel();rOverview()}
@@ -822,6 +754,123 @@ function rOverview(){
   var oc=document.getElementById("overCheckpoints");if(oc)oc.innerHTML=ch;
 }
 
+// ===== Proxy System =====
+function genProxyPIN(){return String(1000+Math.floor(Math.random()*9000))}
+
+function lookupProxy(){
+  var v=document.getElementById("proxyAlias").value.trim().toLowerCase();
+  var res=document.getElementById("proxyLookupRes");
+  if(v&&DIR[v]){res.style.display="block";res.innerHTML="<i class='fa-solid fa-circle-check'></i> "+DIR[v].n+" ("+DIR[v].t+")";}
+  else{res.style.display="none";}
+}
+
+function assignProxy(){
+  var alias=document.getElementById("proxyAlias").value.trim().toLowerCase();
+  var siteEl=document.getElementById("proxySiteSelect2");
+  var site=siteEl?siteEl.value:"";
+  var startD=document.getElementById("proxyStart").value;
+  var endD=document.getElementById("proxyEnd").value;
+  var msg=document.getElementById("proxyMsg");
+  
+  if(!alias||!DIR[alias]){msg.style.display="block";msg.style.background="var(--err-bg)";msg.style.color="var(--err)";msg.textContent="Invalid alias";return}
+  if(!site||site==="Site..."){msg.style.display="block";msg.style.background="var(--err-bg)";msg.style.color="var(--err)";msg.textContent="Select a site";return}
+  if(!startD||!endD){msg.style.display="block";msg.style.background="var(--err-bg)";msg.style.color="var(--err)";msg.textContent="Set start and end dates";return}
+  if(new Date(endD)<new Date(startD)){msg.style.display="block";msg.style.background="var(--err-bg)";msg.style.color="var(--err)";msg.textContent="End date must be after start";return}
+  
+  var pin=genProxyPIN();
+  var proxy={alias:alias,name:DIR[alias].n,site:site,pin:pin,start:startD,end:endD,active:true,created:new Date().toISOString()};
+  
+  // Save to Firebase
+  if(fbReady){
+    var key=fbDb.ref("proxies").push().key;
+    proxy.id=key;
+    fbDb.ref("proxies/"+key).set(proxy);
+  }
+  
+  // Show success + open mailto
+  msg.style.display="block";msg.style.background="var(--ok-bg)";msg.style.color="var(--ok)";
+  msg.innerHTML="<i class='fa-solid fa-circle-check'></i> Proxy assigned! PIN: <b>"+pin+"</b> for "+site+" ("+startD+" to "+endD+")";
+  
+  // Open email
+  var subject="Rounds Tracker - Proxy Access for "+site;
+  var body="Hi "+DIR[alias].n+",\n\nYou have been assigned as a proxy for "+site+" facility rounds.\n\nYour temporary PIN: "+pin+"\nAccess period: "+startD+" to "+endD+"\n\nOpen the Rounds Tracker app, tap Manager, and enter this PIN to view "+site+" rounds and status.\n\nThis PIN will automatically expire on "+endD+".";
+  try{window.open("mailto:"+alias+"@amazon.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body));}catch(em){}
+  
+  // Clear form
+  document.getElementById("proxyAlias").value="";document.getElementById("proxyLookupRes").style.display="none";
+  loadProxies();
+}
+
+function loadProxies(){
+  if(!fbReady)return;
+  fbDb.ref("proxies").once("value",function(snap){
+    var data=snap.val();var el=document.getElementById("activeProxies");if(!el)return;
+    var now=new Date();var h="";var count=0;
+    if(data){
+      for(var key in data){
+        if(!data.hasOwnProperty(key))continue;
+        var p=data[key];
+        var end=new Date(p.end+"T23:59:59");
+        var start=new Date(p.start);
+        var isActive=now>=start&&now<=end;
+        // If site-locked manager, only show their site proxies
+        if(mgrSite&&p.site!==mgrSite)continue;
+        if(!isActive){
+          // Deactivate expired proxy
+          if(p.active){fbDb.ref("proxies/"+key+"/active").set(false)}
+          continue;
+        }
+        count++;
+        h+="<div style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'>";
+        h+="<div style='flex:1'><div style='font-size:11px;font-weight:600'>"+p.name+" <span style='color:var(--muted);font-weight:400'>("+p.alias+")</span></div>";
+        h+="<div style='font-size:9px;color:var(--text2)'>"+p.site+" \u00b7 "+p.start+" to "+p.end+"</div></div>";
+        h+="<div style='font-size:10px;color:var(--pri);font-family:var(--fm)'>PIN: "+p.pin+"</div>";
+        h+="<button style='background:none;border:none;color:var(--err);font-size:12px;cursor:pointer;padding:4px' onclick=\"revokeProxy('"+key+"')\"><i class='fa-solid fa-xmark'></i></button>";
+        h+="</div>";
+      }
+    }
+    if(!count)h="<div style='font-size:10px;color:var(--muted)'>No active proxies</div>";
+    el.innerHTML=h;
+  });
+}
+
+function revokeProxy(key){
+  if(!fbReady)return;
+  fbDb.ref("proxies/"+key+"/active").set(false);
+  fbDb.ref("proxies/"+key+"/end").set(new Date().toISOString().split("T")[0]);
+  loadProxies();
+}
+
+// Check if a PIN matches an active proxy
+function checkProxyPIN(pin,callback){
+  if(!fbReady){callback(null);return}
+  fbDb.ref("proxies").once("value",function(snap){
+    var data=snap.val();if(!data){callback(null);return}
+    var now=new Date();
+    for(var key in data){
+      if(!data.hasOwnProperty(key))continue;
+      var p=data[key];
+      if(p.pin===pin&&p.active){
+        var end=new Date(p.end+"T23:59:59");
+        var start=new Date(p.start);
+        if(now>=start&&now<=end){callback(p.site);return}
+      }
+    }
+    callback(null);
+  });
+}}
+
+// ===== Site-Locked Helpers =====
+function getVisibleSites(){return mgrSite?[mgrSite]:SITES}
+
+function populateProxySiteSelect(){
+  var sel=document.getElementById("proxySiteSelect2");if(!sel)return;
+  var sites=getVisibleSites();
+  var h="<option>Site...</option>";
+  for(var i=0;i<sites.length;i++)h+="<option>"+sites[i]+"</option>";
+  sel.innerHTML=h;
+}
+
 function seed(){
   var now=Date.now();var sg=["HS","1.1A","2.1A","ER-1.1C","MV-ROOM"];
   for(var d=0;d<2;d++){for(var h=0;h<2;h++){for(var s=0;s<sg.length;s++){
@@ -830,30 +879,27 @@ function seed(){
     rounds.push({id:ts.getTime().toString(36),site:"ARN60",areaId:a.id,areaName:a.name,group:a.group,alias:"almanath",ts:ts.toISOString(),shift:shift,status:bad?"issue":"ok",notes:bad?"Abnormal reading on panel B3.":""})}}}
   rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
 }
-// Initialize - Firebase for sync, IndexedDB as fallback
-if(fbReady){
-  // Use Firebase as primary data source
-  fbListenRounds(function(){
-    if(rounds.length===0){seed();
-      for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}
-    }
-    fbArchiveOld();
-    renderAll();
-  });
-}else{
-  try{
-    openDB(function(){
-      loadAllRounds(function(){
-        if(rounds.length===0){seed();
-          if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
-        }
-        try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
-      });
+// App startup
+function startApp(){
+  if(fbReady){
+    fbListenRounds(function(){
+      if(rounds.length===0){seed();for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}}
+      fbArchiveOld();renderAll();
     });
-  }catch(e){
-    seed();renderAll();
+  }else{
+    try{
+      openDB(function(){
+        loadAllRounds(function(){
+          if(rounds.length===0){seed();
+            if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
+          }
+          try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
+        });
+      });
+    }catch(e){seed();renderAll()}
   }
 }
+startApp();
 
 // URL parameter handling — when a QR code is scanned
 function checkQRParams(){
@@ -875,6 +921,31 @@ function checkQRParams(){
   }catch(e){}
 }
 checkQRParams();
+</script>
+
+<script>
+// Deferred Firebase loading - won't block or crash if CDN is unavailable
+(function(){
+  try{
+    var s1=document.createElement("script");
+    s1.src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js";
+    s1.onload=function(){
+      var s2=document.createElement("script");
+      s2.src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js";
+      s2.onload=function(){
+        try{
+          fbApp=firebase.initializeApp(firebaseConfig);
+          fbDb=firebase.database();
+          fbReady=true;
+          // Re-init with Firebase
+          fbListenRounds(function(){renderAll()});
+        }catch(e){}
+      };
+      document.head.appendChild(s2);
+    };
+    document.head.appendChild(s1);
+  }catch(e){}
+})();
 </script>
 </body>
 </html>
