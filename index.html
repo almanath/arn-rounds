@@ -73,20 +73,34 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 </style>
 </head>
 <body>
-<div class="hdr" id="mainHdr" style="display:none">
+<div class="hdr" id="mainHdr">
   <div class="left"><h1><i class="fa-solid fa-bolt" style="color:var(--pri);margin-right:4px"></i>Rounds Tracker</h1><div class="sub">ARN Cluster</div></div>
-  <div class="upill" onclick="doLogout()" title="Sign out"><div class="dot"></div><span class="un" id="hdrUser"></span><span class="rb admin" id="hdrRole"></span></div>
+  <div id="hdrRight">
+    <div id="hdrMgrBtn" class="upill" onclick="openMgrLogin()" title="Manager Login"><i class="fa-solid fa-lock" style="font-size:10px;color:var(--warn)"></i><span style="font-size:10px">Manager</span></div>
+    <div id="hdrUserPill" class="upill" style="display:none" onclick="doMgrLogout()" title="Sign out"><div class="dot"></div><span class="un" id="hdrUser"></span><span class="rb admin" id="hdrRole"></span></div>
+  </div>
 </div>
 
-<div class="page active" id="page-login"><div class="login-screen">
-  <div class="logo"><i class="fa-solid fa-bolt"></i></div><h2>Rounds Tracker</h2><div class="sub2">ARN Cluster \u2014 Data Center Operations</div>
-  <div class="login-box"><div class="aea"><i class="fa-solid fa-shield-halved"></i> AEA Authentication</div>
-  <p style="font-size:11px;color:var(--text2);margin-bottom:12px;text-align:left">Sign in with your Amazon alias. Required once per day.</p>
-  <input type="text" id="loginAlias" placeholder="Enter your alias..." oninput="lookupAlias()">
-  <div id="loginRes" style="display:none"></div><div class="err-msg" id="loginErr">Alias not found</div>
-  <button class="sub-btn" id="loginBtn" onclick="doLogin()" disabled><i class="fa-solid fa-right-to-bracket"></i> Sign in via AEA</button>
-  <p style="font-size:9px;color:var(--muted);margin-top:10px"><i class="fa-solid fa-lock" style="margin-right:2px"></i> Session expires daily at midnight.</p>
-</div></div></div>
+<div class="page active" id="page-status">
+  <div class="site-sel" id="siteSelStatus"></div>
+  <div class="sh"><span><i class="fa-solid fa-clipboard-check" style="color:var(--pri);margin-right:4px"></i>Shift Status</span></div>
+  <div id="shiftBadgeStatus" style="margin-bottom:8px"></div>
+  <div class="stats" id="statusStats"></div>
+  <p style="font-size:11px;color:var(--text2);margin-bottom:8px"><i class="fa-solid fa-qrcode" style="margin-right:3px"></i>Scan a QR code at each checkpoint to submit your round.</p>
+  <div class="sh" style="margin-top:8px"><span style="font-size:12px">Checkpoints</span></div>
+  <div id="statusList"></div>
+</div>
+
+<div id="mgrLoginModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:300;align-items:center;justify-content:center;flex-direction:column">
+  <div class="login-box" style="max-width:320px">
+    <div class="aea"><i class="fa-solid fa-shield-halved"></i> Manager Access</div>
+    <p style="font-size:11px;color:var(--text2);margin-bottom:12px;text-align:left">Enter your site PIN to access the management view.</p>
+    <input type="password" id="mgrPIN" placeholder="4-digit PIN" maxlength="4" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:18px;font-family:var(--fm);text-align:center;letter-spacing:8px" oninput="checkMgrPIN()">
+    <div class="err-msg" id="mgrErr">Invalid PIN</div>
+    <button class="sub-btn" id="mgrLoginBtn" onclick="doMgrLogin()" disabled><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
+    <button style="width:100%;padding:8px;background:none;border:1px solid var(--border);border-radius:var(--rs);color:var(--text2);font-size:12px;margin-top:6px;cursor:pointer" onclick="closeMgrLogin()">Cancel</button>
+  </div>
+</div>
 
 <div class="page" id="page-scan">
   <div class="site-sel" id="siteSel"></div>
@@ -130,6 +144,15 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Print this page (Ctrl+P) to get all QR codes for <span id="qrSiteName" style="color:var(--pri);font-weight:600">ARN60</span>. QR codes are unique per site + checkpoint.</p>
   <button class="sub-btn" style="margin-bottom:12px;margin-top:0" onclick="window.print()"><i class="fa-solid fa-print"></i> Print QR Codes</button>
   <div class="qr-grid" id="qrGrid"></div>
+</div>
+
+<div class="page" id="page-archive">
+  <div class="site-sel" id="siteSelArch"></div>
+  <div class="sh"><span><i class="fa-solid fa-box-archive" style="color:var(--pri);margin-right:4px"></i>Archive</span></div>
+  <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Rounds older than 30 days are automatically archived here, grouped by site.</p>
+  <div class="flts" id="archF"></div>
+  <div id="archStats" style="margin-bottom:8px"></div>
+  <div id="archList"></div>
 </div>
 
 <div class="page" id="page-admin">
@@ -184,12 +207,14 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 <div class="sov" id="sO"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div class="txt">Round Submitted!</div></div>
 <div class="notif" id="notif"><div class="ntitle"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i> Issue Alert Sent</div><div class="nmsg" id="notifMsg"></div></div>
 
-<nav class="nav" id="mainNav" style="display:none">
-  <button class="nav-item active" onclick="sp('scan')" data-page="scan"><i class="fa-solid fa-qrcode"></i>Scan</button>
+<nav class="nav" id="mainNav">
+  <button class="nav-item active" onclick="sp('status')" data-page="status"><i class="fa-solid fa-clipboard-check"></i>Status</button>
+  <button class="nav-item" onclick="sp('overview')" data-page="overview" id="navOverview" style="display:none"><i class="fa-solid fa-chart-line"></i>Overview</button>
   <button class="nav-item" onclick="sp('history')" data-page="history"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
-  <button class="nav-item" onclick="sp('qr')" data-page="qr"><i class="fa-solid fa-print"></i>QR</button>
-  <button class="nav-item" onclick="sp('admin')" data-page="admin" id="navAdmin"><i class="fa-solid fa-sliders"></i>Manage</button>
-  <button class="nav-item" onclick="sp('settings')" data-page="settings"><i class="fa-solid fa-gear"></i>Settings</button>
+  <button class="nav-item" onclick="sp('qr')" data-page="qr" id="navQR" style="display:none"><i class="fa-solid fa-print"></i>QR</button>
+  <button class="nav-item" onclick="sp('archive')" data-page="archive" id="navArchive" style="display:none"><i class="fa-solid fa-box-archive"></i>Archive</button>
+  <button class="nav-item" onclick="sp('admin')" data-page="admin" id="navAdmin" style="display:none"><i class="fa-solid fa-sliders"></i>Manage</button>
+  <button class="nav-item" onclick="sp('settings')" data-page="settings" id="navSettings" style="display:none"><i class="fa-solid fa-gear"></i>Settings</button>
 </nav>
 
 <script>
@@ -224,7 +249,11 @@ var DIR={
 
 var SITES=["ARN50","ARN51","ARN52","ARN60","ARN61","ARN62"];
 var QR_BASE_URL="https://YOUR-SHAREPOINT-LINK/rounds-tracker-app.html";
-var curSite="ARN60";var curUser=null;var curGen=null;var curSt=null;var hFilt="all";var rounds=[];
+var curSite="ARN60";var curUser=null;var curGen=null;var curSt=null;var hFilt="all";var archSite="ARN60";var archFilt="all";
+
+var SITE_PINS={ARN50:"5023",ARN51:"5147",ARN52:"5269",ARN60:"6034",ARN61:"6158",ARN62:"6271"};
+var ADMIN_PIN="9999";
+var mgrMode=false;var mgrSite=null;var mgrRole=null;
 
 var siteMgrs={ARN50:"mohagale",ARN51:"yukselon",ARN52:"jskeppar",ARN60:"mohagale",ARN61:"yukselon",ARN62:"jskeppar"};
 var siteCEs={ARN50:"hueprest",ARN51:"edwinahl",ARN52:"mathebc",ARN60:"albihngc",ARN61:"edwinahl",ARN62:"xabergem"};
@@ -270,7 +299,78 @@ function getTemplate(s){if(s==="ARN61")return AREAS_61;return is5X(s)?AREAS_5X:A
 var siteAreas={};
 for(var si=0;si<SITES.length;si++){var tmpl=getTemplate(SITES[si]);var arr=[];for(var ai=0;ai<tmpl.length;ai++){var a=tmpl[ai];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}siteAreas[SITES[si]]=arr}
 
+// ===== IndexedDB Storage Layer =====
+var DB_NAME="RoundsTrackerDB";var DB_VER=2;var db=null;var rounds=[];var archivedRounds=[];
+var ARCHIVE_DAYS=30;
+
+function openDB(cb){
+  if(typeof indexedDB==="undefined"){console.warn("IndexedDB not available");if(cb)cb();return}
+  var req;try{req=indexedDB.open(DB_NAME,DB_VER);}catch(e){console.warn("IndexedDB blocked:",e);if(cb)cb();return}
+  req.onupgradeneeded=function(e){
+    var d=e.target.result;
+    if(!d.objectStoreNames.contains("rounds")){var rs=d.createObjectStore("rounds",{keyPath:"id"});rs.createIndex("site","site");rs.createIndex("ts","ts")}
+    if(!d.objectStoreNames.contains("archive")){var as2=d.createObjectStore("archive",{keyPath:"id"});as2.createIndex("site","site");as2.createIndex("ts","ts")}
+  };
+  req.onsuccess=function(e){db=e.target.result;if(cb)cb()};
+  req.onerror=function(){console.error("IndexedDB failed, using in-memory fallback");if(cb)cb()};
+}
+
+function dbPut(store,obj,cb){
+  if(!db){if(cb)cb();return}
+  var tx=db.transaction(store,"readwrite");tx.objectStore(store).put(obj);tx.oncomplete=function(){if(cb)cb()};tx.onerror=function(){if(cb)cb()};
+}
+
+function dbGetAll(store,cb){
+  if(!db){cb([]);return}
+  var tx=db.transaction(store,"readonly");var req2=tx.objectStore(store).getAll();
+  req2.onsuccess=function(){cb(req2.result||[])};req2.onerror=function(){cb([])};
+}
+
+function saveRound(r,cb){
+  rounds.unshift(r);
+  dbPut("rounds",r,cb);
+}
+
+function loadAllRounds(cb){
+  dbGetAll("rounds",function(data){
+    rounds=data.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    if(cb)cb();
+  });
+}
+
+function loadArchive(cb){
+  dbGetAll("archive",function(data){
+    archivedRounds=data.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    if(cb)cb();
+  });
+}
+
+function autoArchive(cb){
+  if(!db){if(cb)cb();return}
+  var cutoff=Date.now()-(ARCHIVE_DAYS*24*60*60*1000);
+  var toArchive=[];
+  for(var i=0;i<rounds.length;i++){
+    var r=rounds[i];
+    if(new Date(r.ts).getTime()<cutoff){toArchive.push(r)}
+  }
+  if(!toArchive.length){if(cb)cb();return}
+  var tx=db.transaction(["rounds","archive"],"readwrite");
+  var aStore=tx.objectStore("archive");var rStore=tx.objectStore("rounds");
+  for(var j=0;j<toArchive.length;j++){aStore.put(toArchive[j]);rStore.delete(toArchive[j].id)}
+  tx.oncomplete=function(){
+    rounds=rounds.filter(function(r2){return new Date(r2.ts).getTime()>=cutoff});
+    console.log("Auto-archived "+toArchive.length+" rounds older than "+ARCHIVE_DAYS+" days");
+    if(cb)cb();
+  };
+  tx.onerror=function(){if(cb)cb()};
+}
+
 function getShift(){var h=new Date().getHours();return(h>=7&&h<19)?"day":"night"}
+function getRoundDate(){
+  var d=new Date();var h=d.getHours();
+  if(h<7){d=new Date(d.getTime()-86400000)}
+  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1)+"-"+(d.getDate()<10?"0":"")+d.getDate();
+}
 function shiftLabel(s){return s==="day"?"Day Shift (07\u201319)":"Night Shift (19\u201307)"}
 function shiftIcon(s){return s==="day"?"fa-sun":"fa-moon"}
 function fmtD(d){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return d.getDate()+" "+m[d.getMonth()]}
@@ -284,28 +384,16 @@ function lookupAlias(){
   var p=DIR[v];if(p){res.style.display="block";res.innerHTML="<div class='resolved'><i class='fa-solid fa-circle-check'></i><div><div class='rn'>"+p.n+"</div><div class='rt'>"+p.t+" \u00b7 <span class='rb "+p.r+"'>"+roleLabel(p.r)+"</span></div></div></div>";btn.disabled=false}
   else if(v.length>=3){err.style.display="block"}
 }
-function doLogin(){
-  var alias=document.getElementById("loginAlias").value.trim().toLowerCase();var p=DIR[alias];if(!p)return;
-  curUser={alias:alias,name:p.n,title:p.t,role:p.r};
-  document.getElementById("hdrUser").textContent=alias;document.getElementById("hdrRole").className="rb "+p.r;document.getElementById("hdrRole").textContent=roleLabel(p.r);
-  document.getElementById("setAlias").textContent=alias;document.getElementById("setName").textContent=p.n;document.getElementById("setRole").textContent=roleLabel(p.r);
-  document.getElementById("mainHdr").style.display="flex";document.getElementById("mainNav").style.display="flex";
-  document.getElementById("navAdmin").style.display=p.r==="admin"?"flex":"none";
-  var pss=document.getElementById("proxySiteSelect");pss.innerHTML="<option>Site...</option>";for(var i=0;i<SITES.length;i++)pss.innerHTML+="<option>"+SITES[i]+"</option>";
-  sp("scan");
-  checkQRParams();
-}
-function doLogout(){
-  curUser=null;document.getElementById("mainHdr").style.display="none";document.getElementById("mainNav").style.display="none";
-  var ps=document.querySelectorAll(".page");for(var i=0;i<ps.length;i++)ps[i].classList.remove("active");
-  document.getElementById("page-login").classList.add("active");document.getElementById("loginAlias").value="";document.getElementById("loginRes").style.display="none";document.getElementById("loginBtn").disabled=true;
-}
+function doLogin(){}
+
+function doLogout(){doMgrLogout()}
+
 
 function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h="";for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}el.innerHTML=h}
 function setSite(s){curSite=s;renderAll()}
 function renderAll(){
-  renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
-  rgg();uStats();rMgrs();rQR();
+  renderStatusSiteSel();renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
+  rStatus();rgg();uStats();rMgrs();
   var as=document.getElementById("adminSite");if(as)as.textContent=curSite;
   var qn=document.getElementById("qrSiteName");if(qn)qn.textContent=curSite;
 }
@@ -315,9 +403,12 @@ function sp(p){
   var t=document.getElementById("page-"+p);if(t)t.classList.add("active");
   var ns=document.querySelectorAll(".nav-item");for(var j=0;j<ns.length;j++)ns[j].classList.remove("active");
   var nv=document.querySelector(".nav-item[data-page='"+p+"']");if(nv)nv.classList.add("active");
+  if(p==="status"){renderStatusSiteSel();rStatus()}
+  if(p==="overview"){renderOverSiteSel();rOverview()}
   if(p==="history"){renderSiteSel("siteSel2");rHist()}
   if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
   if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
+  if(p==="archive"){renderArchSiteSel();rArch()}
   if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
 }
 
@@ -346,7 +437,8 @@ function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="
 function doSubmit(){
   if(!curSt){alert("Select a status.");return}if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
-  rounds.unshift({id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:curUser?curUser.alias:"",ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes});
+  var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:"dceo",ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes};
+  saveRound(newRound);
   document.getElementById("sB").disabled=true;var ov=document.getElementById("sO");ov.classList.add("show");
   if(curSt==="issue"){
     var ne=document.getElementById("notif");document.getElementById("notifMsg").innerHTML="<b>"+curGen.id+"</b> @ "+curSite+": "+notes.substring(0,60)+"<br><span style='font-size:9px;color:var(--muted)'>Email+Slack \u2192 "+(curUser?curUser.name:"submitter")+"</span>";
@@ -417,6 +509,231 @@ function rMgrs(){
 }
 function setR(role,site){var prefix=role==="mgr"?"mgr-":"ce-";var inp=document.getElementById(prefix+site);if(!inp)return;var v=inp.value.trim().toLowerCase();if(role==="mgr")siteMgrs[site]=v;else siteCEs[site]=v;rMgrs()}
 
+function renderArchSiteSel(){
+  var el=document.getElementById("siteSelArch");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===archSite?" active":"")+"' onclick=\"setArchSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  el.innerHTML=h;
+}
+function setArchSite(s){archSite=s;renderArchSiteSel();rArch()}
+
+function rArch(){
+  loadArchive(function(){
+    var fe=document.getElementById("archF"),ls=document.getElementById("archList"),st=document.getElementById("archStats");
+    var fh="<button class='fc"+(archFilt==="all"?" act":"")+"' onclick=\"sAF('all')\">All</button><button class='fc"+(archFilt==="ok"?" act":"")+"' onclick=\"sAF('ok')\">OK</button><button class='fc"+(archFilt==="issue"?" act":"")+"' onclick=\"sAF('issue')\">Issues</button>";
+    fe.innerHTML=fh;
+    var fd=[];
+    for(var i=0;i<archivedRounds.length;i++){
+      var r=archivedRounds[i];if(r.site!==archSite)continue;
+      if(archFilt==="all")fd.push(r);else if(archFilt===r.status)fd.push(r);
+    }
+    // Stats
+    var total=0,issues=0;
+    for(var k=0;k<archivedRounds.length;k++){if(archivedRounds[k].site===archSite){total++;if(archivedRounds[k].status==="issue")issues++}}
+    st.innerHTML="<div style='display:flex;gap:8px;margin-bottom:4px'><div class='card' style='flex:1'><div class='card-label'>Archived</div><div class='card-value' style='color:var(--pri);font-size:16px'>"+total+"</div></div><div class='card' style='flex:1'><div class='card-label'>Issues</div><div class='card-value' style='color:var(--err);font-size:16px'>"+issues+"</div></div></div>";
+
+    if(!fd.length){ls.innerHTML="<div class='es'><p>No archived rounds for "+archSite+".</p></div>";return}
+    // Group by month
+    var months={},mord=[];
+    for(var j=0;j<fd.length;j++){
+      var d=new Date(fd[j].ts);var mk=d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1);
+      var ml=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()]+" "+d.getFullYear();
+      if(!months[mk]){months[mk]={label:ml,items:[]};mord.push(mk)}months[mk].items.push(fd[j]);
+    }
+    var h="";
+    for(var mi=0;mi<mord.length;mi++){
+      var m=months[mord[mi]];
+      h+="<div style='font-size:11px;font-weight:600;color:var(--pri);margin:10px 0 4px;font-family:var(--fm)'>"+m.label+" ("+m.items.length+")</div>";
+      for(var ri=0;ri<m.items.length;ri++){
+        var r=m.items[ri],d2=new Date(r.ts);
+        var nh=r.notes?"<div class='nt'><i class='fa-solid fa-note-sticky'></i> "+r.notes+"</div>":"";
+        var shB="<span class='bdg "+r.shift+"'><i class='fa-solid "+(r.shift==="day"?"fa-sun":"fa-moon")+"' style='margin-right:2px'></i>"+(r.shift==="day"?"Day":"Night")+"</span>";
+        h+="<div class='card hi'><div class='dot "+r.status+"'></div><div class='hi-i'><div class='gn'>"+r.areaId+" \u2014 "+r.areaName+"</div><div class='mt'>"+r.alias+" \u00b7 "+r.group+"</div>"+nh+"</div><div class='hi-t'><div>"+fmtD(d2)+"</div><div>"+shB+"</div><div class='bdg "+r.status+"' style='margin-top:2px'>"+(r.status==="ok"?"OK":"ISSUE")+"</div></div></div>";
+      }
+    }
+    ls.innerHTML=h;
+  });
+}
+function sAF(f){archFilt=f;rArch()}
+
+// ===== DCEO Status Page =====
+function renderStatusSiteSel(){
+  var el=document.getElementById("siteSelStatus");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setSiteSt('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  el.innerHTML=h;
+}
+function setSiteSt(s){curSite=s;renderStatusSiteSel();rStatus()}
+
+function rStatus(){
+  var shift=getShift();var today=getRoundDate();
+  var sb=document.getElementById("shiftBadgeStatus");
+  if(sb)sb.innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+(shift==="day"?"fa-sun":"fa-moon")+"'></i>"+(shift==="day"?"Day Shift (07:00\u201319:00)":"Night Shift (19:00\u201307:00)")+"</div>";
+
+  var areas=siteAreas[curSite];var done=0;var total=0;var issueCount=0;var h="";
+  for(var i=0;i<areas.length;i++){
+    var a=areas[i];if(!a.enabled)continue;total++;
+    var completed=false;var hasIssue=false;
+    for(var j=0;j<rounds.length;j++){
+      var r=rounds[j];if(r.site===curSite&&r.areaId===a.id&&r.shift===shift&&getRoundDateFromTS(r.ts)===today){completed=true;if(r.status==="issue")hasIssue=true;break}
+    }
+    if(completed)done++;if(hasIssue)issueCount++;
+    var icon=completed?(hasIssue?"<i class='fa-solid fa-triangle-exclamation' style='color:var(--warn)'></i>":"<i class='fa-solid fa-circle-check' style='color:var(--ok)'></i>"):"<i class='fa-regular fa-circle' style='color:var(--muted)'></i>";
+    var statusTxt=completed?(hasIssue?"Issue reported":"Done"):"Pending";
+    var statusClr=completed?(hasIssue?"var(--warn)":"var(--ok)"):"var(--muted)";
+    h+="<div class='card' style='display:flex;align-items:center;gap:10px;padding:10px'><div style='font-size:16px'>"+icon+"</div><div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div><div style='font-size:10px;color:"+statusClr+";font-weight:600'>"+statusTxt+"</div></div>";
+  }
+  var pct=total>0?Math.round(done/total*100):0;
+  var ss=document.getElementById("statusStats");
+  if(ss)ss.innerHTML="<div class='card'><div class='card-label'>Completed</div><div class='card-value' style='color:var(--ok);font-size:16px'>"+done+"/"+total+"</div></div><div class='card'><div class='card-label'>Progress</div><div class='card-value' style='color:var(--pri);font-size:16px'>"+pct+"%</div></div><div class='card'><div class='card-label'>Issues</div><div class='card-value' style='color:"+(issueCount>0?"var(--err)":"var(--ok)")+";font-size:16px'>"+issueCount+"</div></div>";
+  var sl=document.getElementById("statusList");if(sl)sl.innerHTML=h;
+}
+
+function getRoundDateFromTS(ts){
+  var d=new Date(ts);var h=d.getHours();
+  if(h<7){d=new Date(d.getTime()-86400000)}
+  return d.getFullYear()+"-"+(d.getMonth()<9?"0":"")+(d.getMonth()+1)+"-"+(d.getDate()<10?"0":"")+d.getDate();
+}
+
+// ===== Manager Login =====
+function openMgrLogin(){
+  document.getElementById("mgrLoginModal").style.display="flex";
+  document.getElementById("mgrPIN").value="";
+  document.getElementById("mgrErr").style.display="none";
+  document.getElementById("mgrLoginBtn").disabled=true;
+  document.getElementById("mgrPIN").focus();
+}
+function closeMgrLogin(){document.getElementById("mgrLoginModal").style.display="none"}
+
+function checkMgrPIN(){
+  var v=document.getElementById("mgrPIN").value;
+  document.getElementById("mgrLoginBtn").disabled=v.length!==4;
+  document.getElementById("mgrErr").style.display="none";
+}
+
+function doMgrLogin(){
+  var pin=document.getElementById("mgrPIN").value;
+  // Check admin
+  if(pin===ADMIN_PIN){
+    mgrMode=true;mgrSite=null;mgrRole="admin";
+    closeMgrLogin();showMgrUI();return;
+  }
+  // Check site pins
+  for(var i=0;i<SITES.length;i++){
+    if(SITE_PINS[SITES[i]]===pin){
+      mgrMode=true;mgrSite=SITES[i];
+      // Determine role
+      if(siteMgrs[SITES[i]]){mgrRole="fm"}
+      if(siteCEs[SITES[i]]){mgrRole="ce"}
+      mgrRole=mgrRole||"fm";
+      closeMgrLogin();showMgrUI();return;
+    }
+  }
+  document.getElementById("mgrErr").style.display="block";
+}
+
+function showMgrUI(){
+  // Show manager nav items
+  document.getElementById("navOverview").style.display="flex";
+  document.getElementById("navQR").style.display="flex";
+  document.getElementById("navArchive").style.display="flex";
+  document.getElementById("navSettings").style.display="flex";
+  if(mgrRole==="admin")document.getElementById("navAdmin").style.display="flex";
+  // Update header
+  document.getElementById("hdrMgrBtn").style.display="none";
+  document.getElementById("hdrUserPill").style.display="flex";
+  var lbl=mgrRole==="admin"?"Admin":(mgrSite||"");
+  document.getElementById("hdrUser").textContent=lbl;
+  var rb=document.getElementById("hdrRole");rb.textContent=mgrRole==="admin"?"ADMIN":"MANAGER";rb.className="rb "+(mgrRole==="admin"?"admin":"fm");
+  // If site-specific, lock to that site
+  if(mgrSite){curSite=mgrSite;archSite=mgrSite}
+  sp("overview");
+}
+
+function doMgrLogout(){
+  mgrMode=false;mgrSite=null;mgrRole=null;
+  document.getElementById("navOverview").style.display="none";
+  document.getElementById("navQR").style.display="none";
+  document.getElementById("navArchive").style.display="none";
+  document.getElementById("navAdmin").style.display="none";
+  document.getElementById("navSettings").style.display="none";
+  document.getElementById("hdrMgrBtn").style.display="flex";
+  document.getElementById("hdrUserPill").style.display="none";
+  sp("status");
+}
+
+// ===== Manager Overview =====
+function renderOverSiteSel(){
+  if(mgrSite){
+    // Site-locked manager - no selector
+    var el=document.getElementById("siteSelOver");if(el)el.innerHTML="<div class='site-btn active'>"+mgrSite+"</div>";
+    return;
+  }
+  var el=document.getElementById("siteSelOver");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setOverSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  el.innerHTML=h;
+}
+function setOverSite(s){curSite=s;renderOverSiteSel();rOverview()}
+
+function rOverview(){
+  var site=mgrSite||curSite;
+  var shift=getShift();var today=getRoundDate();
+  var os2=document.getElementById("overShift");
+  if(os2)os2.innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+(shift==="day"?"fa-sun":"fa-moon")+"'></i>"+(shift==="day"?"Day Shift":"Night Shift")+"</div><span style='font-size:11px;color:var(--text2);margin-left:8px'>"+site+"</span>";
+
+  // Current shift stats
+  var areas=siteAreas[site];var done=0;var total=0;var issues=0;
+  for(var i=0;i<areas.length;i++){
+    var a=areas[i];if(!a.enabled)continue;total++;
+    for(var j=0;j<rounds.length;j++){
+      var r=rounds[j];if(r.site===site&&r.areaId===a.id&&r.shift===shift&&getRoundDateFromTS(r.ts)===today){done++;if(r.status==="issue")issues++;break}
+    }
+  }
+  var oss=document.getElementById("overStats");
+  if(oss)oss.innerHTML="<div class='card'><div class='card-label'>This Shift</div><div class='card-value' style='color:var(--ok);font-size:16px'>"+done+"/"+total+"</div></div><div class='card'><div class='card-label'>Pending</div><div class='card-value' style='color:"+(total-done>0?"var(--warn)":"var(--ok)")+";font-size:16px'>"+(total-done)+"</div></div><div class='card'><div class='card-label'>Issues</div><div class='card-value' style='color:"+(issues>0?"var(--err)":"var(--ok)")+";font-size:16px'>"+issues+"</div></div>";
+
+  // This week stats (Mon 07:00 to now)
+  var now=new Date();var dow=now.getDay();var mondayOffset=(dow===0?6:dow-1);
+  var weekStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()-mondayOffset,7,0,0);
+  var weekMissed=0;var weekIssues=0;var weekTotal=0;var weekDone=0;
+  // Count expected rounds: 2 per day per checkpoint (day+night) for each day from Monday to today
+  var daysElapsed=Math.floor((now-weekStart)/(86400000))+1;
+  var shiftsToCheck=[];
+  for(var d=0;d<daysElapsed;d++){
+    var dayDate=new Date(weekStart.getTime()+d*86400000);
+    var dateStr=dayDate.getFullYear()+"-"+(dayDate.getMonth()<9?"0":"")+(dayDate.getMonth()+1)+"-"+(dayDate.getDate()<10?"0":"")+dayDate.getDate();
+    shiftsToCheck.push({date:dateStr,shift:"day"});
+    if(d<daysElapsed-1||now.getHours()>=19)shiftsToCheck.push({date:dateStr,shift:"night"});
+  }
+  var enabledAreas=0;
+  for(var ai=0;ai<areas.length;ai++){if(areas[ai].enabled)enabledAreas++}
+  for(var si=0;si<shiftsToCheck.length;si++){
+    var sc=shiftsToCheck[si];weekTotal+=enabledAreas;
+    for(var ai2=0;ai2<areas.length;ai2++){
+      if(!areas[ai2].enabled)continue;
+      var found=false;
+      for(var ri=0;ri<rounds.length;ri++){
+        var r=rounds[ri];if(r.site===site&&r.areaId===areas[ai2].id&&r.shift===sc.shift&&getRoundDateFromTS(r.ts)===sc.date){found=true;if(r.status==="issue")weekIssues++;break}
+      }
+      if(found)weekDone++;
+    }
+  }
+  weekMissed=weekTotal-weekDone;
+  var ow=document.getElementById("overWeek");
+  if(ow)ow.innerHTML="<div class='card'><div class='card-label'>Rounds Done</div><div class='card-value' style='color:var(--ok);font-size:16px'>"+weekDone+"</div></div><div class='card'><div class='card-label'>Missed</div><div class='card-value' style='color:"+(weekMissed>0?"var(--err)":"var(--ok)")+";font-size:16px'>"+weekMissed+"</div></div><div class='card'><div class='card-label'>Issues</div><div class='card-value' style='color:"+(weekIssues>0?"var(--err)":"var(--ok)")+";font-size:16px'>"+weekIssues+"</div></div>";
+
+  // Checkpoint list for current shift
+  var ch="";
+  for(var ci=0;ci<areas.length;ci++){
+    var a=areas[ci];if(!a.enabled)continue;
+    var completed=false;var hasIssue=false;
+    for(var cj=0;cj<rounds.length;cj++){
+      var r=rounds[cj];if(r.site===site&&r.areaId===a.id&&r.shift===shift&&getRoundDateFromTS(r.ts)===today){completed=true;if(r.status==="issue")hasIssue=true;break}
+    }
+    var icon=completed?(hasIssue?"<i class='fa-solid fa-triangle-exclamation' style='color:var(--warn)'></i>":"<i class='fa-solid fa-circle-check' style='color:var(--ok)'></i>"):"<i class='fa-regular fa-circle' style='color:var(--muted)'></i>";
+    ch+="<div style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'><div style='font-size:14px'>"+icon+"</div><div style='font-size:11px;font-weight:600;flex:1'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div>";
+  }
+  var oc=document.getElementById("overCheckpoints");if(oc)oc.innerHTML=ch;
+}
+
 function seed(){
   var now=Date.now();var sg=["HS","1.1A","2.1A","ER-1.1C","MV-ROOM"];
   for(var d=0;d<2;d++){for(var h=0;h<2;h++){for(var s=0;s<sg.length;s++){
@@ -425,31 +742,38 @@ function seed(){
     rounds.push({id:ts.getTime().toString(36),site:"ARN60",areaId:a.id,areaName:a.name,group:a.group,alias:"almanath",ts:ts.toISOString(),shift:shift,status:bad?"issue":"ok",notes:bad?"Abnormal reading on panel B3.":""})}}}
   rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
 }
-seed();
+// Initialize - try IndexedDB, fall back to in-memory
+try{
+  openDB(function(){
+    loadAllRounds(function(){
+      if(rounds.length===0){seed();
+        if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
+      }
+      try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
+    });
+  });
+}catch(e){
+  seed();renderAll();
+}
 
 // URL parameter handling — when a QR code is scanned
 function checkQRParams(){
-  var search=window.location.search;
-  if(!search||search.length<2)return;
-  var params={};
-  var pairs=search.substring(1).split("&");
-  for(var i=0;i<pairs.length;i++){
-    var kv=pairs[i].split("=");
-    if(kv.length===2)params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]);
-  }
-  if(params.site&&params.checkpoint){
-    var site=params.site;
-    var cp=params.checkpoint;
-    // Switch to the right site
-    var validSite=false;
-    for(var j=0;j<SITES.length;j++){if(SITES[j]===site){validSite=true;break}}
-    if(validSite){
-      curSite=site;
-      renderAll();
-      // If user is logged in, go directly to the round form
-      if(curUser){oForm(cp)}
+  try{
+    var search=window.location.search||"";
+    if(!search||search.length<2)return;
+    var params={};
+    var pairs=search.substring(1).split("&");
+    for(var i=0;i<pairs.length;i++){
+      var kv=pairs[i].split("=");
+      if(kv.length===2)params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]);
     }
-  }
+    if(params.site&&params.checkpoint){
+      var site=params.site;var cp=params.checkpoint;
+      var validSite=false;
+      for(var j=0;j<SITES.length;j++){if(SITES[j]===site){validSite=true;break}}
+      if(validSite){curSite=site;renderAll();oForm(cp)}
+    }
+  }catch(e){}
 }
 checkQRParams();
 </script>
