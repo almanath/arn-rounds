@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Rounds Tracker</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+<style>
+:root{--bg:#0f172a;--bg-card:#1e293b;--bg-hover:#273548;--text:#f1f5f9;--text2:#94a3b8;--muted:#64748b;--border:#334155;--pri:#3b82f6;--pri2:#2563eb;--ok:#22c55e;--ok-bg:#052e16;--err:#ef4444;--err-bg:#450a0a;--warn:#f59e0b;--r:12px;--rs:8px;--f:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;--fm:'SF Mono',Consolas,monospace}
+*{box-sizing:border-box;margin:0;padding:0}body{font-family:var(--f);background:var(--bg);color:var(--text);min-height:100vh;padding-bottom:80px}button{cursor:pointer;font-family:inherit}
+.nav{position:fixed;bottom:0;left:0;right:0;background:var(--bg-card);border-top:1px solid var(--border);display:flex;z-index:100;padding:6px 0}
+.nav-item{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:8px 4px;color:var(--muted);font-size:10px;border:none;background:none}.nav-item.active,.nav-item:hover{color:var(--pri)}.nav-item i{font-size:18px}
+.hdr{background:var(--bg-card);padding:12px 16px;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:50;display:flex;justify-content:space-between;align-items:center}
+.hdr .left h1{font-size:16px;font-weight:600}.hdr .left .sub{font-size:10px;color:var(--text2);margin-top:1px}
+.hdr .upill{display:flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--border);border-radius:20px;padding:4px 10px 4px 7px;font-size:10px;color:var(--text2);cursor:pointer}
+.hdr .upill .dot{width:7px;height:7px;border-radius:50%;background:var(--ok)}.hdr .upill .un{font-weight:600;color:var(--text)}
+.rb{display:inline-block;padding:2px 7px;border-radius:10px;font-size:9px;font-weight:600}
+.rb.admin{background:#7c3aed22;color:#a78bfa}.rb.fm{background:#f59e0b22;color:#fbbf24}.rb.ce{background:#3b82f622;color:#60a5fa}.rb.dceo{background:#22c55e22;color:#4ade80}
+.site-sel{display:flex;gap:4px;margin:8px 0;flex-wrap:wrap}
+.site-btn{padding:4px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:11px;font-weight:600}
+.site-btn.active{background:var(--pri);border-color:var(--pri);color:#fff}
+.page{display:none;padding:12px;max-width:640px;margin:0 auto}.page.active{display:block}
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:12px;margin-bottom:8px}
+.card-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.card-value{font-size:20px;font-weight:700;font-family:var(--fm)}
+.stats{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:12px}
+.hall{margin-bottom:12px}.hall-lbl{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:5px;font-weight:600;display:flex;align-items:center;gap:5px}.hall-lbl i{font-size:12px}
+.gg{display:grid;grid-template-columns:repeat(auto-fill,minmax(68px,1fr));gap:5px}
+.gb{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--rs);padding:8px 4px;color:var(--text);font-size:12px;font-weight:700;text-align:center;transition:all .15s}
+.gb:hover{border-color:var(--pri);background:var(--bg-hover)}.gb.disabled{opacity:.3;pointer-events:none;border-style:dashed}
+.fh{display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.badge-g{background:var(--pri);color:#fff;padding:7px 14px;border-radius:var(--rs);font-weight:700;font-size:16px}
+.fr{margin-bottom:12px}.fr label{display:block;font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px}.fr .val{font-size:12px;color:var(--text2);font-family:var(--fm)}
+.sb{display:flex;gap:8px}
+.s-btn{flex:1;padding:12px;border-radius:var(--rs);border:2px solid var(--border);background:transparent;color:var(--text);font-size:13px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:5px}
+.s-btn.ok.sel{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}.s-btn.issue.sel{border-color:var(--err);background:var(--err-bg);color:var(--err)}
+textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:8px;color:var(--text);font-family:inherit;font-size:12px;resize:vertical;min-height:60px}textarea:focus{outline:none;border-color:var(--pri)}
+.sub-btn{width:100%;padding:12px;background:var(--pri);color:#fff;border:none;border-radius:var(--rs);font-size:14px;font-weight:600;margin-top:4px}.sub-btn:hover{background:var(--pri2)}.sub-btn:disabled{opacity:.5;cursor:not-allowed}
+.bk{background:none;border:none;color:var(--text2);font-size:12px;display:flex;align-items:center;gap:4px;margin-bottom:12px}.bk:hover{color:var(--text)}
+.sov{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:200;align-items:center;justify-content:center;flex-direction:column}.sov.show{display:flex}.sov .ico{font-size:60px;color:var(--ok)}.sov .txt{font-size:16px;font-weight:600;margin-top:12px}
+.hi{display:flex;align-items:center;gap:8px;padding:10px}.dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}.dot.ok{background:var(--ok)}.dot.issue{background:var(--err)}
+.hi-i{flex:1;min-width:0}.hi-i .gn{font-weight:600;font-size:12px}.hi-i .mt{font-size:10px;color:var(--muted);margin-top:1px}.hi-i .nt{font-size:10px;color:var(--warn);margin-top:2px}
+.hi-t{font-size:10px;color:var(--muted);font-family:var(--fm);text-align:right;flex-shrink:0}
+.flts{display:flex;gap:5px;margin-bottom:8px;flex-wrap:wrap}
+.fc{padding:3px 10px;border-radius:16px;border:1px solid var(--border);background:transparent;color:var(--text2);font-size:10px;white-space:nowrap}.fc.act{background:var(--pri);border-color:var(--pri);color:#fff}
+.bdg{display:inline-block;padding:2px 7px;border-radius:14px;font-size:9px;font-weight:600}
+.bdg.ok{background:var(--ok-bg);color:var(--ok)}.bdg.issue{background:var(--err-bg);color:var(--err)}.bdg.day{background:#1e3a5f;color:#60a5fa}.bdg.night{background:#312e81;color:#a78bfa}
+.sh{margin-bottom:8px}.sh span{font-size:14px;font-weight:600}
+.es{text-align:center;padding:24px 16px;color:var(--muted)}.es p{font-size:12px}
+.sx{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);padding:8px 10px;color:var(--text);font-size:12px;margin-bottom:10px}.sx:focus{outline:none;border-color:var(--pri)}
+.toggle{position:relative;width:36px;height:20px;border-radius:10px;background:var(--border);border:none;cursor:pointer;flex-shrink:0}.toggle.on{background:var(--ok)}.toggle::after{content:"";position:absolute;top:2px;left:2px;width:16px;height:16px;border-radius:50%;background:#fff;transition:left .2s}.toggle.on::after{left:18px}
+.admin-row{display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border)}.admin-row:last-child{border-bottom:none}.admin-row .name{font-size:12px;font-weight:600}.admin-row .area{font-size:10px;color:var(--muted)}
+.disabled-tag{font-size:8px;color:var(--err);background:var(--err-bg);padding:1px 5px;border-radius:6px;margin-left:4px}
+.shift-badge{display:inline-flex;align-items:center;gap:3px;padding:3px 8px;border-radius:var(--rs);font-size:11px;font-weight:600;border:1px solid var(--border)}
+.shift-badge.day{background:#1e3a5f;color:#60a5fa;border-color:#1e3a5f}.shift-badge.night{background:#312e81;color:#a78bfa;border-color:#312e81}.shift-badge i{font-size:10px}
+.sr{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border)}.sr:last-child{border-bottom:none}
+.login-screen{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:80vh;text-align:center;padding:20px}
+.login-screen .logo{font-size:48px;color:var(--pri);margin-bottom:12px}.login-screen h2{font-size:20px;font-weight:700;margin-bottom:3px}.login-screen .sub2{color:var(--text2);font-size:12px;margin-bottom:24px}
+.login-box{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--r);padding:20px;width:100%;max-width:320px}
+.login-box .aea{display:inline-flex;align-items:center;gap:5px;background:#ff9900;color:#111;padding:5px 12px;border-radius:var(--rs);font-size:11px;font-weight:700;margin-bottom:14px}
+.login-box input{width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:13px;margin-bottom:6px;font-family:var(--fm)}.login-box input:focus{outline:none;border-color:var(--pri)}
+.resolved{padding:7px 10px;background:var(--ok-bg);border:1px solid #065f46;border-radius:var(--rs);margin-bottom:10px;display:flex;align-items:center;gap:7px}
+.resolved i{color:var(--ok)}.resolved .rn{font-size:12px;font-weight:600}.resolved .rt{font-size:10px;color:var(--text2)}
+.err-msg{font-size:11px;color:var(--err);margin-bottom:6px;display:none}
+.notif{position:fixed;top:70px;right:16px;background:var(--bg-card);border:1px solid var(--warn);border-radius:var(--r);padding:12px 16px;z-index:300;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none}
+.notif.show{display:block}.notif .ntitle{font-size:11px;font-weight:600;color:var(--warn);margin-bottom:3px}.notif .nmsg{font-size:10px;color:var(--text2)}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
+.qr-card{background:#fff;border-radius:var(--rs);padding:12px;text-align:center}
+.qr-card img{width:100%;max-width:180px;height:auto;margin-bottom:6px}
+.qr-card .qr-label{font-size:11px;font-weight:700;color:#1e293b}.qr-card .qr-site{font-size:9px;color:#64748b}
+@media print{body{background:#fff;color:#000;padding:0}.page,.hdr,.nav,.notif,.sov{display:none!important}#page-qr{display:block!important;padding:10px}
+.qr-grid{grid-template-columns:repeat(3,1fr);gap:8px}.qr-card{border:1px solid #ccc;break-inside:avoid}.site-sel,.flts,.sh,.sx{display:none!important}}
+</style>
+</head>
+<body>
+<div class="hdr" id="mainHdr" style="display:none">
+  <div class="left"><h1><i class="fa-solid fa-bolt" style="color:var(--pri);margin-right:4px"></i>Rounds Tracker</h1><div class="sub">ARN Cluster</div></div>
+  <div class="upill" onclick="doLogout()" title="Sign out"><div class="dot"></div><span class="un" id="hdrUser"></span><span class="rb admin" id="hdrRole"></span></div>
+</div>
+
+<div class="page active" id="page-login"><div class="login-screen">
+  <div class="logo"><i class="fa-solid fa-bolt"></i></div><h2>Rounds Tracker</h2><div class="sub2">ARN Cluster \u2014 Data Center Operations</div>
+  <div class="login-box"><div class="aea"><i class="fa-solid fa-shield-halved"></i> AEA Authentication</div>
+  <p style="font-size:11px;color:var(--text2);margin-bottom:12px;text-align:left">Sign in with your Amazon alias. Required once per day.</p>
+  <input type="text" id="loginAlias" placeholder="Enter your alias..." oninput="lookupAlias()">
+  <div id="loginRes" style="display:none"></div><div class="err-msg" id="loginErr">Alias not found</div>
+  <button class="sub-btn" id="loginBtn" onclick="doLogin()" disabled><i class="fa-solid fa-right-to-bracket"></i> Sign in via AEA</button>
+  <p style="font-size:9px;color:var(--muted);margin-top:10px"><i class="fa-solid fa-lock" style="margin-right:2px"></i> Session expires daily at midnight.</p>
+</div></div></div>
+
+<div class="page" id="page-scan">
+  <div class="site-sel" id="siteSel"></div>
+  <div class="stats">
+    <div class="card"><div class="card-label">Today</div><div class="card-value" id="sT" style="color:var(--ok)">0</div></div>
+    <div class="card"><div class="card-label">Issues</div><div class="card-value" id="sI" style="color:var(--err)">0</div></div>
+    <div class="card"><div class="card-label">Active</div><div class="card-value" id="sA" style="color:var(--pri)">0</div></div>
+  </div>
+  <div class="sh"><span>Start Round</span></div>
+  <input type="text" class="sx" id="gs" placeholder="Search areas..." oninput="rgg()">
+  <div id="ggd"></div>
+</div>
+
+<div class="page" id="page-form">
+  <button class="bk" onclick="sp('scan')"><i class="fa-solid fa-arrow-left"></i> Back</button>
+  <div class="fh"><div class="badge-g" id="fB">HS</div><div><div style="font-weight:600;font-size:14px" id="fN">House Supply</div><div style="font-size:10px;color:var(--muted)" id="fS">ARN60</div></div></div>
+  <div class="fr"><label>Operator</label><div class="val" id="fA"></div></div>
+  <div class="fr"><label>Shift</label><div id="fShift"></div></div>
+  <div class="fr"><label>Status</label><div class="sb">
+    <button class="s-btn ok" onclick="ss('ok')" id="bO"><i class="fa-solid fa-circle-check"></i> All OK</button>
+    <button class="s-btn issue" onclick="ss('issue')" id="bI"><i class="fa-solid fa-triangle-exclamation"></i> Issue</button>
+  </div></div>
+  <div class="fr" id="nR" style="display:none"><label>Notes <span style="color:var(--err)">*</span></label><textarea id="fNo" placeholder="Describe the issue..."></textarea></div>
+  <button class="sub-btn" onclick="doSubmit()" id="sB"><i class="fa-solid fa-paper-plane"></i> Submit Round</button>
+</div>
+
+<div class="page" id="page-history">
+  <div class="site-sel" id="siteSel2"></div>
+  <div class="sh"><span id="histTitle">Round History</span></div>
+  <div class="flts" id="hF"></div><div id="hL"></div>
+</div>
+
+<div class="page" id="page-qr">
+  <div class="site-sel" id="siteSelQR"></div>
+  <div class="sh"><span>QR Codes</span></div>
+  <div style="background:var(--card);border-radius:var(--rs);padding:10px;margin-bottom:10px;border:1px solid var(--bdr)">
+    <label style="font-size:11px;font-weight:600;display:block;margin-bottom:4px">Base URL <span style="font-weight:400;color:var(--text2)">(paste your SharePoint link here)</span></label>
+    <input id="qrBaseInput" type="text" style="width:100%;padding:8px;border:1px solid var(--bdr);border-radius:6px;font-size:12px;font-family:monospace;background:var(--bg);color:var(--text)" placeholder="https://your-sharepoint.com/.../rounds-tracker-app.html" oninput="QR_BASE_URL=this.value;rQR()">
+    <p style="font-size:10px;color:var(--text2);margin-top:4px">⚠️ Set this to the URL where the file is hosted. QR codes will be blank until a valid URL is entered.</p>
+  </div>
+  <p style="font-size:11px;color:var(--text2);margin-bottom:8px">Print this page (Ctrl+P) to get all QR codes for <span id="qrSiteName" style="color:var(--pri);font-weight:600">ARN60</span>. QR codes are unique per site + checkpoint.</p>
+  <button class="sub-btn" style="margin-bottom:12px;margin-top:0" onclick="window.print()"><i class="fa-solid fa-print"></i> Print QR Codes</button>
+  <div class="qr-grid" id="qrGrid"></div>
+</div>
+
+<div class="page" id="page-admin">
+  <div class="site-sel" id="siteSel3"></div>
+  <div class="sh"><span>Manage</span></div>
+  <div class="card">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-users" style="color:var(--pri);margin-right:3px"></i> Site Managers &amp; Chief Engineers</div>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Alias grants AEA access. FM shared across 5X/6X pairs. CE can differ.</p>
+    <div id="mgrList"></div>
+  </div>
+  <div class="card">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)">ARN60</span></div>
+    <div id="adminList"></div>
+  </div>
+</div>
+
+<div class="page" id="page-settings">
+  <div class="sh"><span>Settings</span></div>
+  <div class="card">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-user-shield" style="color:var(--pri);margin-right:3px"></i> Session</div>
+    <div class="sr"><div style="font-size:12px">Alias</div><div style="font-size:11px;color:var(--pri);font-family:var(--fm)" id="setAlias"></div></div>
+    <div class="sr"><div style="font-size:12px">Name</div><div style="font-size:11px" id="setName"></div></div>
+    <div class="sr"><div style="font-size:12px">Role</div><div style="font-size:11px" id="setRole"></div></div>
+    <div class="sr"><div style="font-size:12px">AEA</div><div style="font-size:11px;color:var(--ok)"><i class="fa-solid fa-circle-check"></i> Active</div></div>
+  </div>
+  <div class="card">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-clock" style="color:var(--pri);margin-right:3px"></i> Shifts</div>
+    <div class="sr"><div style="font-size:12px">Day / Night</div><div style="font-size:11px;color:var(--text2)">07\u201319 / 19\u201307</div></div>
+    <div class="sr"><div style="font-size:12px">Rounds/day</div><div style="font-size:11px;color:var(--pri);font-family:var(--fm)">2 (1/shift)</div></div>
+    <div class="sr"><div style="font-size:12px">Missed report</div><div style="font-size:11px;color:var(--pri);font-family:var(--fm)">Mon 08:00</div></div>
+  </div>
+  <div class="card">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-bell" style="color:var(--pri);margin-right:3px"></i> Issue Alerts</div>
+    <div class="sr"><div style="font-size:12px">Email + Slack</div><div style="font-size:11px;color:var(--ok)"><i class="fa-solid fa-circle-check"></i> On</div></div>
+    <div style="font-size:10px;color:var(--text2);margin-top:4px">Sent to: submitter only (as a follow-up reminder)</div>
+  </div>
+  <div class="card" id="proxyCard">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-user-clock" style="color:var(--pri);margin-right:3px"></i> Proxy Delegation</div>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Assign proxy for view access during absence.</p>
+    <div style="display:flex;gap:5px;flex-wrap:wrap">
+      <select class="sx" style="flex:1;min-width:70px;margin-bottom:0" id="proxySiteSelect"></select>
+      <input type="text" class="sx" style="flex:1;min-width:80px;margin-bottom:0" placeholder="Proxy alias...">
+    </div>
+    <div style="display:flex;gap:5px;margin-top:5px;flex-wrap:wrap">
+      <input type="date" class="sx" style="flex:1;min-width:100px;margin-bottom:0"><input type="date" class="sx" style="flex:1;min-width:100px;margin-bottom:0">
+      <button class="sub-btn" style="width:auto;padding:8px 12px;margin-top:0;font-size:11px">Assign</button>
+    </div>
+  </div>
+  <button class="sub-btn" style="background:var(--err);margin-top:6px" onclick="doLogout()"><i class="fa-solid fa-right-from-bracket"></i> Sign Out</button>
+</div>
+
+<div class="sov" id="sO"><div class="ico"><i class="fa-solid fa-circle-check"></i></div><div class="txt">Round Submitted!</div></div>
+<div class="notif" id="notif"><div class="ntitle"><i class="fa-solid fa-triangle-exclamation" style="margin-right:3px"></i> Issue Alert Sent</div><div class="nmsg" id="notifMsg"></div></div>
+
+<nav class="nav" id="mainNav" style="display:none">
+  <button class="nav-item active" onclick="sp('scan')" data-page="scan"><i class="fa-solid fa-qrcode"></i>Scan</button>
+  <button class="nav-item" onclick="sp('history')" data-page="history"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
+  <button class="nav-item" onclick="sp('qr')" data-page="qr"><i class="fa-solid fa-print"></i>QR</button>
+  <button class="nav-item" onclick="sp('admin')" data-page="admin" id="navAdmin"><i class="fa-solid fa-sliders"></i>Manage</button>
+  <button class="nav-item" onclick="sp('settings')" data-page="settings"><i class="fa-solid fa-gear"></i>Settings</button>
+</nav>
+
+<script>
+var DIR={
+"uhasania":{n:"Abdul Salam Hasanin",t:"DCEO EOT L3",r:"dceo"},"adilpanh":{n:"Adil Panhwar",t:"DCEO EOT L3",r:"dceo"},
+"almanath":{n:"Alma Takala",t:"DCEO EOT L3",r:"admin"},"anadjei":{n:"Anderson Adjei",t:"DCEO EOT L3",r:"dceo"},
+"engratif":{n:"Atif Muhammad",t:"DCEO Engr 3",r:"dceo"},"falbakri":{n:"Bakr Al-Bakri",t:"DCEO Engr 3",r:"dceo"},
+"hansaji":{n:"Chathuranga Kodithuwakku",t:"DCEO Eng Tech",r:"dceo"},"ichrismg":{n:"Christeena Mohan",t:"DCEO Engr 3",r:"dceo"},
+"crifrin":{n:"Cristian Frincu",t:"DCEO Engr 3",r:"dceo"},"paunovid":{n:"Davorin Paunovic",t:"DCEO Engr 4",r:"dceo"},
+"debadasz":{n:"Debashish Das",t:"DCEO Engr 3",r:"dceo"},"dennalz":{n:"Deniz Nalbantov",t:"DCEO Engineer",r:"dceo"},
+"donaldmn":{n:"Donald Mndebele",t:"DCEO Engr 4",r:"dceo"},"jonakarl":{n:"Eddie Jonasson",t:"DCEO Engr 3",r:"dceo"},
+"edbergue":{n:"Emil Edberg",t:"DCEO Eng Tech",r:"dceo"},"eivrssn":{n:"Emil Ivarsson",t:"DCEO Engr 3",r:"dceo"},
+"gamika":{n:"Gamika Fonseka",t:"DCEO EOT",r:"dceo"},"kavinga":{n:"Gayan Kavinga",t:"DCEO Engr 3",r:"dceo"},
+"hakalle":{n:"Hariprasad Surendranathan",t:"DCEO Eng Tech",r:"dceo"},"kljuc":{n:"Ivan Kljucevic",t:"DCEO L4",r:"dceo"},
+"stigjgog":{n:"Johan Gogman",t:"DCEO Engr 4",r:"dceo"},"kiranseb":{n:"Kiran Fernandez",t:"DCEO Engr 3",r:"dceo"},
+"mandhim":{n:"Manoj Dhimal",t:"DCEO Engr 3",r:"dceo"},"thuruthi":{n:"Mariya Thuruthikkattu Joy",t:"DCEO Engr 3",r:"dceo"},
+"brewism":{n:"Michael Brewis",t:"DCEO Engr 4",r:"dceo"},"naumanr":{n:"Nauman Rasul",t:"DCEO Engr 3",r:"dceo"},
+"nzmulhn":{n:"Nazmul Hassan",t:"DCEO Engineer",r:"dceo"},"nicoull":{n:"Nicolina Ullberg",t:"DCEO Engr 3",r:"dceo"},
+"noufhamz":{n:"Noufal Hamza",t:"DCEO Engr 3",r:"dceo"},"pranipaz":{n:"Pranisha K. Pazhanthota",t:"DCEO Engineer",r:"dceo"},
+"pranima":{n:"Pranitha Gorenka",t:"DCEO Engr 3",r:"dceo"},"rashmale":{n:"Rashmal E. Bhanuprakash",t:"DCEO Engr 4",r:"dceo"},
+"asiqulh":{n:"Ratul Hossain",t:"DCEO EOT L3",r:"dceo"},"sktanvir":{n:"Shaik Tanvir",t:"DCEO Engr 3",r:"dceo"},
+"sudeshdi":{n:"Sudeshitha Dissanayake",t:"DCEO Engr 3",r:"dceo"},"agnesate":{n:"Tina Agnesater",t:"DCEO Engr 3",r:"dceo"},
+"vnorell":{n:"Viktor Norell",t:"DCEO Engr 3",r:"dceo"},"wajdaila":{n:"Wajde Ailan",t:"DCEO EOT L3",r:"dceo"},
+"seyitimi":{n:"Adeyinka Timileyin",t:"DCEO Engr 4",r:"dceo"},"palenius":{n:"Pontus Palenius",t:"DCEO Engr 3",r:"dceo"},
+"ehrenste":{n:"Gabriel Ehrenstein",t:"DCEO Engr 4",r:"dceo"},
+"mohagale":{n:"Alexander Mohaghegh",t:"Facility Manager",r:"fm"},"yukselon":{n:"Onur Yuksel",t:"Facility Manager",r:"fm"},
+"jskeppar":{n:"Joacim Forsstroem",t:"Facility Manager",r:"fm"},
+"albihngc":{n:"Jesper Albihn Gustafsson",t:"Chief Engineer L5",r:"ce"},"edwinahl":{n:"Edwin Ahlbom",t:"Acting Chief Engineer",r:"ce"},
+"xabergem":{n:"Emil Aberg",t:"Chief Engineer",r:"ce"},"mathebc":{n:"Clement Mathebula",t:"Chief Engineer",r:"ce"},
+"hueprest":{n:"Preston Mputu Huena",t:"Chief Engineer",r:"ce"}
+};
+
+var SITES=["ARN50","ARN51","ARN52","ARN60","ARN61","ARN62"];
+var QR_BASE_URL="https://YOUR-SHAREPOINT-LINK/rounds-tracker-app.html";
+var curSite="ARN60";var curUser=null;var curGen=null;var curSt=null;var hFilt="all";var rounds=[];
+
+var siteMgrs={ARN50:"mohagale",ARN51:"yukselon",ARN52:"jskeppar",ARN60:"mohagale",ARN61:"yukselon",ARN62:"jskeppar"};
+var siteCEs={ARN50:"hueprest",ARN51:"edwinahl",ARN52:"mathebc",ARN60:"albihngc",ARN61:"edwinahl",ARN62:"xabergem"};
+
+var AREAS_6X=[
+{id:"HS",name:"House Supply",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"1.1A",name:"Gen 1.1A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1.1B",name:"Gen 1.1B",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1.1C",name:"Gen 1.1C",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"1.2A",name:"Gen 1.2A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1.2B",name:"Gen 1.2B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"1.3A",name:"Gen 1.3A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1.3B",name:"Gen 1.3B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"1.4A",name:"Gen 1.4A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"1.4B",name:"Gen 1.4B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"1.5A",name:"Gen 1.5A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"1.5B",name:"Gen 1.5B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"1.6A",name:"Gen 1.6A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"1.6B",name:"Gen 1.6B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"2.1A",name:"Gen 2.1A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2.1B",name:"Gen 2.1B",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2.1C",name:"Gen 2.1C",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"2.2A",name:"Gen 2.2A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2.2B",name:"Gen 2.2B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"2.3A",name:"Gen 2.3A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2.3B",name:"Gen 2.3B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"2.4A",name:"Gen 2.4A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"2.4B",name:"Gen 2.4B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"2.5A",name:"Gen 2.5A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"2.5B",name:"Gen 2.5B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"2.6A",name:"Gen 2.6A",group:"Generator Yard",icon:"fa-bolt",enabled:false},{id:"2.6B",name:"Gen 2.6B",group:"Generator Yard",icon:"fa-bolt",enabled:false},
+{id:"ER-1.1C",name:"ER 1.1C",group:"Electrical Rooms \u2014 GF",icon:"fa-plug",enabled:true},{id:"ER-1.3",name:"ER 1.3",group:"Electrical Rooms \u2014 GF",icon:"fa-plug",enabled:true},{id:"ER-1.6",name:"ER 1.6",group:"Electrical Rooms \u2014 GF",icon:"fa-plug",enabled:true},
+{id:"ER-2.1C",name:"ER 2.1C",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},{id:"ER-2.3",name:"ER 2.3",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},{id:"ER-2.6",name:"ER 2.6",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},
+{id:"DAHU-W-GF-1",name:"DAHU West GF #1",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-GF-2",name:"DAHU West GF #2",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-1F-1",name:"DAHU West 1F #1",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-1F-2",name:"DAHU West 1F #2",group:"DAHU West",icon:"fa-wind",enabled:true},
+{id:"DAHU-E-GF-1",name:"DAHU East GF #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-GF-2",name:"DAHU East GF #2",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-1",name:"DAHU East 1F #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-2",name:"DAHU East 1F #2",group:"DAHU East",icon:"fa-wind",enabled:true},
+{id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},{id:"FUEL-FARM",name:"Fuel Farm",group:"Other",icon:"fa-gas-pump",enabled:true}
+];
+var AREAS_61=AREAS_6X.concat([{id:"FP-1",name:"Fire Pump 1",group:"Other",icon:"fa-fire-extinguisher",enabled:true},{id:"FP-2",name:"Fire Pump 2",group:"Other",icon:"fa-fire-extinguisher",enabled:true}]);
+var AREAS_5X=[
+{id:"1A",name:"Gen 1A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1B",name:"Gen 1B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"2A",name:"Gen 2A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2B",name:"Gen 2B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"4A",name:"Gen 4A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"4B",name:"Gen 4B",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"4C",name:"Gen 4C",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"5A",name:"Gen 5A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"5B",name:"Gen 5B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"6A",name:"Gen 6A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"6B",name:"Gen 6B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"7A",name:"Gen 7A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"7B",name:"Gen 7B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"8B",name:"Gen 8B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"AHU-C1",name:"AHU Compound 1",group:"AHU Compounds",icon:"fa-wind",enabled:true},{id:"AHU-C2",name:"AHU Compound 2",group:"AHU Compounds",icon:"fa-wind",enabled:true},
+{id:"ER-4C",name:"ER 4C",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-1",name:"ER 1",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-5C",name:"ER 5C",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-8",name:"ER 8",group:"Electrical Rooms",icon:"fa-plug",enabled:true},
+{id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},
+{id:"FP-1",name:"Fire Pump 1",group:"Other",icon:"fa-fire-extinguisher",enabled:true},{id:"FP-2",name:"Fire Pump 2",group:"Other",icon:"fa-fire-extinguisher",enabled:true}
+];
+
+function is5X(s){return s==="ARN50"||s==="ARN51"||s==="ARN52"}
+function getTemplate(s){if(s==="ARN61")return AREAS_61;return is5X(s)?AREAS_5X:AREAS_6X}
+
+var siteAreas={};
+for(var si=0;si<SITES.length;si++){var tmpl=getTemplate(SITES[si]);var arr=[];for(var ai=0;ai<tmpl.length;ai++){var a=tmpl[ai];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}siteAreas[SITES[si]]=arr}
+
+function getShift(){var h=new Date().getHours();return(h>=7&&h<19)?"day":"night"}
+function shiftLabel(s){return s==="day"?"Day Shift (07\u201319)":"Night Shift (19\u201307)"}
+function shiftIcon(s){return s==="day"?"fa-sun":"fa-moon"}
+function fmtD(d){var m=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];return d.getDate()+" "+m[d.getMonth()]}
+function findA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id)return as[i]}return null}
+function roleLabel(r){return r==="admin"?"Admin":r==="fm"?"Facility Mgr":r==="ce"?"Chief Eng":"DCEO"}
+
+function lookupAlias(){
+  var v=document.getElementById("loginAlias").value.trim().toLowerCase();
+  var res=document.getElementById("loginRes");var err=document.getElementById("loginErr");var btn=document.getElementById("loginBtn");
+  err.style.display="none";res.style.display="none";btn.disabled=true;if(!v)return;
+  var p=DIR[v];if(p){res.style.display="block";res.innerHTML="<div class='resolved'><i class='fa-solid fa-circle-check'></i><div><div class='rn'>"+p.n+"</div><div class='rt'>"+p.t+" \u00b7 <span class='rb "+p.r+"'>"+roleLabel(p.r)+"</span></div></div></div>";btn.disabled=false}
+  else if(v.length>=3){err.style.display="block"}
+}
+function doLogin(){
+  var alias=document.getElementById("loginAlias").value.trim().toLowerCase();var p=DIR[alias];if(!p)return;
+  curUser={alias:alias,name:p.n,title:p.t,role:p.r};
+  document.getElementById("hdrUser").textContent=alias;document.getElementById("hdrRole").className="rb "+p.r;document.getElementById("hdrRole").textContent=roleLabel(p.r);
+  document.getElementById("setAlias").textContent=alias;document.getElementById("setName").textContent=p.n;document.getElementById("setRole").textContent=roleLabel(p.r);
+  document.getElementById("mainHdr").style.display="flex";document.getElementById("mainNav").style.display="flex";
+  document.getElementById("navAdmin").style.display=p.r==="admin"?"flex":"none";
+  var pss=document.getElementById("proxySiteSelect");pss.innerHTML="<option>Site...</option>";for(var i=0;i<SITES.length;i++)pss.innerHTML+="<option>"+SITES[i]+"</option>";
+  sp("scan");
+  checkQRParams();
+}
+function doLogout(){
+  curUser=null;document.getElementById("mainHdr").style.display="none";document.getElementById("mainNav").style.display="none";
+  var ps=document.querySelectorAll(".page");for(var i=0;i<ps.length;i++)ps[i].classList.remove("active");
+  document.getElementById("page-login").classList.add("active");document.getElementById("loginAlias").value="";document.getElementById("loginRes").style.display="none";document.getElementById("loginBtn").disabled=true;
+}
+
+function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h="";for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===curSite?" active":"")+"' onclick=\"setSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}el.innerHTML=h}
+function setSite(s){curSite=s;renderAll()}
+function renderAll(){
+  renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
+  rgg();uStats();rMgrs();rQR();
+  var as=document.getElementById("adminSite");if(as)as.textContent=curSite;
+  var qn=document.getElementById("qrSiteName");if(qn)qn.textContent=curSite;
+}
+
+function sp(p){
+  var ps=document.querySelectorAll(".page");for(var i=0;i<ps.length;i++)ps[i].classList.remove("active");
+  var t=document.getElementById("page-"+p);if(t)t.classList.add("active");
+  var ns=document.querySelectorAll(".nav-item");for(var j=0;j<ns.length;j++)ns[j].classList.remove("active");
+  var nv=document.querySelector(".nav-item[data-page='"+p+"']");if(nv)nv.classList.add("active");
+  if(p==="history"){renderSiteSel("siteSel2");rHist()}
+  if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
+  if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
+  if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
+}
+
+function rgg(){
+  var s=(document.getElementById("gs").value||"").toLowerCase();var areas=siteAreas[curSite];var f=[];
+  for(var i=0;i<areas.length;i++){var a=areas[i];if(!s||a.id.toLowerCase().indexOf(s)!==-1||a.name.toLowerCase().indexOf(s)!==-1||a.group.toLowerCase().indexOf(s)!==-1)f.push(a)}
+  var grps={},ord=[];for(var j=0;j<f.length;j++){var k=f[j].group;if(!grps[k]){grps[k]=[];ord.push(k)}grps[k].push(f[j])}
+  var html="";for(var gi=0;gi<ord.length;gi++){var gn=ord[gi],gs2=grps[gn];var ico=gs2[0].icon;
+    html+="<div class='hall'><div class='hall-lbl'><i class='fa-solid "+ico+"'></i> "+gn+"</div><div class='gg'>";
+    for(var g=0;g<gs2.length;g++){var a=gs2[g];html+=a.enabled?"<button class='gb' onclick=\"oForm('"+a.id+"')\">"+a.id+"</button>":"<button class='gb disabled'>"+a.id+"</button>"}
+    html+="</div></div>"}
+  if(!f.length)html="<div class='es'><p>No areas found.</p></div>";
+  document.getElementById("ggd").innerHTML=html;
+  var ec=0;for(var c=0;c<areas.length;c++){if(areas[c].enabled)ec++}document.getElementById("sA").textContent=ec;
+}
+
+function oForm(id){
+  var a=findA(id);if(!a||!a.enabled)return;curGen=a;curSt=null;
+  document.getElementById("fB").textContent=a.id;document.getElementById("fN").textContent=a.name;document.getElementById("fS").textContent=curSite;
+  document.getElementById("fA").textContent=curUser?curUser.alias:"";
+  var shift=getShift();document.getElementById("fShift").innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+shiftIcon(shift)+"'></i> "+shiftLabel(shift)+"</div>";
+  document.getElementById("fNo").value="";document.getElementById("nR").style.display="none";
+  document.getElementById("bO").className="s-btn ok";document.getElementById("bI").className="s-btn issue";document.getElementById("sB").disabled=false;sp("form");
+}
+function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");document.getElementById("nR").style.display=s==="issue"?"block":"none"}
+function doSubmit(){
+  if(!curSt){alert("Select a status.");return}if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
+  var shift=getShift();var notes=document.getElementById("fNo").value.trim();
+  rounds.unshift({id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:curUser?curUser.alias:"",ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes});
+  document.getElementById("sB").disabled=true;var ov=document.getElementById("sO");ov.classList.add("show");
+  if(curSt==="issue"){
+    var ne=document.getElementById("notif");document.getElementById("notifMsg").innerHTML="<b>"+curGen.id+"</b> @ "+curSite+": "+notes.substring(0,60)+"<br><span style='font-size:9px;color:var(--muted)'>Email+Slack \u2192 "+(curUser?curUser.name:"submitter")+"</span>";
+    ne.classList.add("show");setTimeout(function(){ne.classList.remove("show")},4500)}
+  setTimeout(function(){ov.classList.remove("show");sp("scan")},1400);
+}
+
+function uStats(){
+  var td=new Date().toDateString(),tc=0,ic=0;
+  for(var i=0;i<rounds.length;i++){var r=rounds[i];if(r.site!==curSite)continue;if(curUser&&curUser.role==="dceo"&&r.alias!==curUser.alias)continue;
+    if(new Date(r.ts).toDateString()===td){tc++;if(r.status==="issue")ic++}}
+  document.getElementById("sT").textContent=tc;document.getElementById("sI").textContent=ic;
+}
+
+function rHist(){
+  var fe=document.getElementById("hF"),ls=document.getElementById("hL");var isDCEO=curUser&&curUser.role==="dceo";
+  document.getElementById("histTitle").textContent=isDCEO?"My Rounds":"Round History";
+  var fh="<button class='fc"+(hFilt==="all"?" act":"")+"' onclick=\"sHF('all')\">All</button><button class='fc"+(hFilt==="ok"?" act":"")+"' onclick=\"sHF('ok')\">OK</button><button class='fc"+(hFilt==="issue"?" act":"")+"' onclick=\"sHF('issue')\">Issues</button><button class='fc"+(hFilt==="day"?" act":"")+"' onclick=\"sHF('day')\"><i class='fa-solid fa-sun'></i> Day</button><button class='fc"+(hFilt==="night"?" act":"")+"' onclick=\"sHF('night')\"><i class='fa-solid fa-moon'></i> Night</button>";
+  fe.innerHTML=fh;
+  var fd=[];for(var i=0;i<rounds.length;i++){var r=rounds[i];if(r.site!==curSite)continue;if(isDCEO&&r.alias!==curUser.alias)continue;
+    if(hFilt==="all")fd.push(r);else if(hFilt===r.status||hFilt===r.shift)fd.push(r)}
+  if(!fd.length){ls.innerHTML="<div class='es'><p>"+(isDCEO?"No rounds yet.":"No rounds for "+curSite+".")+"</p></div>";return}
+  var h="";for(var j=0;j<fd.length;j++){var r=fd[j],d=new Date(r.ts);
+    var nh=r.notes?"<div class='nt'><i class='fa-solid fa-note-sticky'></i> "+r.notes+"</div>":"";
+    var shB="<span class='bdg "+r.shift+"'><i class='fa-solid "+(r.shift==="day"?"fa-sun":"fa-moon")+"' style='margin-right:2px'></i>"+(r.shift==="day"?"Day":"Night")+"</span>";
+    h+="<div class='card hi'><div class='dot "+r.status+"'></div><div class='hi-i'><div class='gn'>"+r.areaId+" \u2014 "+r.areaName+"</div><div class='mt'>"+r.alias+" \u00b7 "+r.group+"</div>"+nh+"</div><div class='hi-t'><div>"+fmtD(d)+"</div><div>"+shB+"</div><div class='bdg "+r.status+"' style='margin-top:2px'>"+(r.status==="ok"?"OK":"ISSUE")+"</div></div></div>"}
+  ls.innerHTML=h;
+}
+function sHF(f){hFilt=f;rHist()}
+
+function rQR(){
+  var areas=siteAreas[curSite];var grid=document.getElementById("qrGrid");var h="";
+  var base=QR_BASE_URL;
+  var inp=document.getElementById("qrBaseInput");if(inp&&!inp.value)inp.value=base;
+  if(!base||base.indexOf("YOUR-SHAREPOINT")>-1){
+    grid.innerHTML="<div style='grid-column:1/-1;text-align:center;padding:40px;color:var(--text2)'><i class='fa-solid fa-link' style='font-size:32px;margin-bottom:8px;display:block'></i>Paste your SharePoint URL in the field above to generate QR codes.</div>";
+    return;
+  }
+  for(var i=0;i<areas.length;i++){var a=areas[i];if(!a.enabled)continue;
+    var url=base+"?site="+curSite+"&checkpoint="+encodeURIComponent(a.id);
+    var qrUrl="https://quickchart.io/qr?text="+encodeURIComponent(url)+"&size=400&margin=2&dark=000000&light=ffffff&format=png";
+    h+="<div class='qr-card'><img src='"+qrUrl+"' alt='"+a.id+"' loading='lazy'><div class='qr-label'>"+a.id+"</div><div class='qr-site'>"+curSite+" \u2014 "+a.name+"</div></div>"}
+  grid.innerHTML=h;var qn=document.getElementById("qrSiteName");if(qn)qn.textContent=curSite;
+}
+
+function rAdmin(){
+  var as=siteAreas[curSite];var h="";
+  for(var i=0;i<as.length;i++){var a=as[i];
+    h+="<div class='admin-row'><div><div class='name'>"+a.id+(a.enabled?"":" <span class='disabled-tag'>OFF</span>")+"</div><div class='area'>"+a.name+" \u2014 "+a.group+"</div></div><button class='toggle"+(a.enabled?" on":"")+"' onclick=\"togA('"+a.id+"')\"></button></div>"}
+  document.getElementById("adminList").innerHTML=h;
+}
+function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
+
+function rMgrs(){
+  var el=document.getElementById("mgrList");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){var s=SITES[i];var mgr=siteMgrs[s]||"";var ce=siteCEs[s]||"";var mp=DIR[mgr];var cp=DIR[ce];
+    h+="<div style='padding:8px 0;border-bottom:1px solid var(--border)'>";
+    h+="<div style='font-size:10px;color:var(--pri);font-weight:700;font-family:var(--fm);margin-bottom:5px'>"+s+"</div>";
+    h+="<div style='display:flex;align-items:flex-start;gap:4px;margin-bottom:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>FM</div><div style='flex:1'>";
+    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+mgr+"' id='mgr-"+s+"' onchange=\"setR('mgr','"+s+"')\">";
+    if(mp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+mp.n+"</div>";
+    h+="</div></div>";
+    h+="<div style='display:flex;align-items:flex-start;gap:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>CE</div><div style='flex:1'>";
+    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+ce+"' id='ce-"+s+"' onchange=\"setR('ce','"+s+"')\">";
+    if(cp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+cp.n+"</div>";
+    h+="</div></div></div>"}
+  el.innerHTML=h;
+}
+function setR(role,site){var prefix=role==="mgr"?"mgr-":"ce-";var inp=document.getElementById(prefix+site);if(!inp)return;var v=inp.value.trim().toLowerCase();if(role==="mgr")siteMgrs[site]=v;else siteCEs[site]=v;rMgrs()}
+
+function seed(){
+  var now=Date.now();var sg=["HS","1.1A","2.1A","ER-1.1C","MV-ROOM"];
+  for(var d=0;d<2;d++){for(var h=0;h<2;h++){for(var s=0;s<sg.length;s++){
+    var a=findA(sg[s]);if(!a)continue;var offset=d*86400000+(h===0?36000000:72000000)+(s*120000);var ts=new Date(now-offset);
+    var shift=(ts.getHours()>=7&&ts.getHours()<19)?"day":"night";var bad=(s===3&&d===0&&h===1);
+    rounds.push({id:ts.getTime().toString(36),site:"ARN60",areaId:a.id,areaName:a.name,group:a.group,alias:"almanath",ts:ts.toISOString(),shift:shift,status:bad?"issue":"ok",notes:bad?"Abnormal reading on panel B3.":""})}}}
+  rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+}
+seed();
+
+// URL parameter handling — when a QR code is scanned
+function checkQRParams(){
+  var search=window.location.search;
+  if(!search||search.length<2)return;
+  var params={};
+  var pairs=search.substring(1).split("&");
+  for(var i=0;i<pairs.length;i++){
+    var kv=pairs[i].split("=");
+    if(kv.length===2)params[decodeURIComponent(kv[0])]=decodeURIComponent(kv[1]);
+  }
+  if(params.site&&params.checkpoint){
+    var site=params.site;
+    var cp=params.checkpoint;
+    // Switch to the right site
+    var validSite=false;
+    for(var j=0;j<SITES.length;j++){if(SITES[j]===site){validSite=true;break}}
+    if(validSite){
+      curSite=site;
+      renderAll();
+      // If user is logged in, go directly to the round form
+      if(curUser){oForm(cp)}
+    }
+  }
+}
+checkQRParams();
+</script>
+</body>
+</html>
