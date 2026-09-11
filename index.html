@@ -102,6 +102,18 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   </div>
 </div>
 
+<div class="page" id="page-overview">
+  <div class="site-sel" id="siteSelOver"></div>
+  <div class="sh"><span><i class="fa-solid fa-chart-line" style="color:var(--pri);margin-right:4px"></i>Overview</span></div>
+  <div id="overShift" style="margin-bottom:8px"></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">Current Shift</div>
+  <div class="stats" id="overStats"></div>
+  <div style="font-size:11px;font-weight:600;color:var(--text2);margin-bottom:4px">This Week</div>
+  <div class="stats" id="overWeek"></div>
+  <div class="sh" style="margin-top:8px"><span style="font-size:12px">Checkpoints</span></div>
+  <div id="overCheckpoints"></div>
+</div>
+
 <div class="page" id="page-scan">
   <div class="site-sel" id="siteSel"></div>
   <div class="stats">
@@ -278,9 +290,10 @@ var DIR={
 };
 
 var SITES=["ARN50","ARN51","ARN52","ARN60","ARN61","ARN62"];
-var QR_BASE_URL="https://YOUR-SHAREPOINT-LINK/rounds-tracker-app.html";
+var QR_BASE_URL="https://almanath.github.io/arn-rounds/";
 var curSite="ARN60";var curUser=null;var curGen=null;var curSt=null;var hFilt="all";var archSite="ARN60";var archFilt="all";
 
+var appStarted=false;
 var SITE_PINS={ARN50:"5023",ARN51:"5147",ARN52:"5269",ARN60:"6034",ARN61:"6158",ARN62:"6271"};
 var ADMIN_PIN="9999";
 var mgrMode=false;var mgrSite=null;var mgrRole=null;
@@ -897,19 +910,33 @@ function seed(){
 function startApp(){
   if(appStarted)return;appStarted=true;
   // If QR params present, switch site first
-  if(QR_SITE){curSite=QR_SITE}
+  if(QR_SITE){curSite=QR_SITE;console.log("[QR] site="+QR_SITE+" cp="+QR_CP)}
   seed();
   renderAll();
-  // Open form for QR checkpoint
-  if(QR_SITE&&QR_CP){setTimeout(function(){oForm(QR_CP)},200)}
   // Then try IndexedDB for persistence
   try{
     openDB(function(){
       loadAllRounds(function(){
-        if(rounds.length>0){renderAll()}
+        if(rounds.length>0){
+          // Don't reset page if user is already on the form (from QR)
+          var curPage=document.querySelector(".page.active");
+          if(!curPage||curPage.id!=="page-form"){renderAll()}
+        }
       });
     });
   }catch(e){}
+  // Open form for QR checkpoint — retry until page-form is active
+  if(QR_SITE&&QR_CP){
+    var qrRetries=0;
+    function tryOpenForm(){
+      console.log("[QR] tryOpenForm attempt "+(qrRetries+1)+" cp="+QR_CP);
+      oForm(QR_CP);
+      var pg=document.querySelector(".page.active");
+      if((!pg||pg.id!=="page-form")&&qrRetries<10){qrRetries++;setTimeout(tryOpenForm,300)}
+      else{console.log("[QR] form open: "+(pg?pg.id:"none"))}
+    }
+    setTimeout(tryOpenForm,150);
+  }
 }
 startApp();
 
