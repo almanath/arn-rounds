@@ -899,7 +899,14 @@ startApp();
 // URL parameter handling — when a QR code is scanned
 function checkQRParams(){
   try{
+    // Try window.location.search first
     var search=window.location.search||"";
+    // Fallback: check full URL for ? in case search is empty
+    if(!search||search.length<2){
+      var full=window.location.href||"";
+      var qi=full.indexOf("?");
+      if(qi>-1)search=full.substring(qi);
+    }
     if(!search||search.length<2)return;
     var params={};
     var pairs=search.substring(1).split("&");
@@ -911,9 +918,14 @@ function checkQRParams(){
       var site=params.site;var cp=params.checkpoint;
       var validSite=false;
       for(var j=0;j<SITES.length;j++){if(SITES[j]===site){validSite=true;break}}
-      if(validSite){curSite=site;renderAll();oForm(cp)}
+      if(validSite){
+        curSite=site;
+        renderAll();
+        // Small delay to ensure DOM is ready
+        setTimeout(function(){oForm(cp)},100);
+      }
     }
-  }catch(e){}
+  }catch(e){console.warn("QR params error:",e)}
 }
 checkQRParams();
 </script>
