@@ -881,23 +881,18 @@ function seed(){
 }
 // App startup
 function startApp(){
-  if(fbReady){
-    fbListenRounds(function(){
-      if(rounds.length===0){seed();for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}}
-      fbArchiveOld();renderAll();
-    });
-  }else{
-    try{
-      openDB(function(){
-        loadAllRounds(function(){
-          if(rounds.length===0){seed();
-            if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
-          }
-          try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
-        });
+  if(appStarted)return;appStarted=true;
+  // Always seed and render immediately so the page is never blank
+  seed();
+  renderAll();
+  // Then try IndexedDB for persistence
+  try{
+    openDB(function(){
+      loadAllRounds(function(){
+        if(rounds.length>0){renderAll()}
       });
-    }catch(e){seed();renderAll()}
-  }
+    });
+  }catch(e){}
 }
 startApp();
 
@@ -937,12 +932,21 @@ checkQRParams();
           fbApp=firebase.initializeApp(firebaseConfig);
           fbDb=firebase.database();
           fbReady=true;
-          // Re-init with Firebase
-          fbListenRounds(function(){renderAll()});
-        }catch(e){}
+          // Sync with Firebase - listen for real-time updates
+          fbListenRounds(function(){
+            if(rounds.length===0){
+              // Firebase is empty - push seed data up
+              seed();
+              for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}
+            }
+            renderAll();
+          });
+        }catch(e){console.warn("Firebase init error:",e)}
       };
+      s2.onerror=function(){};
       document.head.appendChild(s2);
     };
+    s1.onerror=function(){};
     document.head.appendChild(s1);
   }catch(e){}
 })();
