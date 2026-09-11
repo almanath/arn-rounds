@@ -935,11 +935,12 @@ checkQRParams();
           // Sync with Firebase - listen for real-time updates
           fbListenRounds(function(){
             if(rounds.length===0){
-              // Firebase is empty - push seed data up
               seed();
               for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}
             }
-            renderAll();
+            // Don't reset page if user is on the form
+            var curPage=document.querySelector(".page.active");
+            if(!curPage||curPage.id!=="page-form"){renderAll()}
           });
         }catch(e){console.warn("Firebase init error:",e)}
       };
