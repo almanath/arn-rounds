@@ -71,6 +71,8 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 @media print{body{background:#fff;color:#000;padding:0}.page,.hdr,.nav,.notif,.sov{display:none!important}#page-qr{display:block!important;padding:10px}
 .qr-grid{grid-template-columns:repeat(3,1fr);gap:8px}.qr-card{border:1px solid #ccc;break-inside:avoid}.site-sel,.flts,.sh,.sx{display:none!important}}
 </style>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
 </head>
 <body>
 <div class="hdr" id="mainHdr">
@@ -218,6 +220,90 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 </nav>
 
 <script>
+// ===== Firebase Realtime Database =====
+var firebaseConfig = {
+  apiKey: "AIzaSyB4ISuO6fDwQCoUSOdFUOfIAmLK81UOqyM",
+  authDomain: "arn-rounds-c4012.firebaseapp.com",
+  databaseURL: "https://arn-rounds-c4012-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "arn-rounds-c4012",
+  storageBucket: "arn-rounds-c4012.firebasestorage.app",
+  messagingSenderId: "1089416867317",
+  appId: "1:1089416867317:web:e771a459333dff20e904bc"
+};
+var fbApp=null;var fbDb=null;var fbReady=false;
+try{
+  fbApp=firebase.initializeApp(firebaseConfig);
+  fbDb=firebase.database();
+  fbReady=true;
+  console.log("Firebase connected!");
+}catch(e){console.warn("Firebase init failed:",e)}
+
+// Write a round to Firebase
+function fbSaveRound(r){
+  if(!fbReady)return;
+  fbDb.ref("rounds/"+r.site+"/"+r.id).set(r);
+}
+
+// Listen for real-time changes on all rounds
+function fbListenRounds(cb){
+  if(!fbReady){if(cb)cb();return}
+  fbDb.ref("rounds").on("value",function(snap){
+    var data=snap.val();
+    rounds=[];
+    if(data){
+      for(var site in data){
+        if(!data.hasOwnProperty(site))continue;
+        var siteRounds=data[site];
+        for(var id in siteRounds){
+          if(!siteRounds.hasOwnProperty(id))continue;
+          rounds.push(siteRounds[id]);
+        }
+      }
+    }
+    rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    // Re-render current page
+    try{rStatus()}catch(e){}
+    try{uStats()}catch(e){}
+    try{rHist()}catch(e){}
+    try{if(mgrMode)rOverview()}catch(e){}
+    if(cb)cb();
+  });
+}
+
+// Move old rounds to archive in Firebase
+function fbArchiveOld(){
+  if(!fbReady)return;
+  var cutoff=Date.now()-(ARCHIVE_DAYS*24*60*60*1000);
+  for(var i=0;i<rounds.length;i++){
+    var r=rounds[i];
+    if(new Date(r.ts).getTime()<cutoff){
+      fbDb.ref("archive/"+r.site+"/"+r.id).set(r);
+      fbDb.ref("rounds/"+r.site+"/"+r.id).remove();
+    }
+  }
+}
+
+// Load archive from Firebase
+function fbLoadArchive(cb){
+  if(!fbReady){if(cb)cb();return}
+  fbDb.ref("archive").once("value",function(snap){
+    var data=snap.val();
+    archivedRounds=[];
+    if(data){
+      for(var site in data){
+        if(!data.hasOwnProperty(site))continue;
+        var siteRounds=data[site];
+        for(var id in siteRounds){
+          if(!siteRounds.hasOwnProperty(id))continue;
+          archivedRounds.push(siteRounds[id]);
+        }
+      }
+    }
+    archivedRounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    if(cb)cb();
+  });
+}
+
 var DIR={
 "uhasania":{n:"Abdul Salam Hasanin",t:"DCEO EOT L3",r:"dceo"},"adilpanh":{n:"Adil Panhwar",t:"DCEO EOT L3",r:"dceo"},
 "almanath":{n:"Alma Takala",t:"DCEO EOT L3",r:"admin"},"anadjei":{n:"Anderson Adjei",t:"DCEO EOT L3",r:"dceo"},
@@ -328,6 +414,7 @@ function dbGetAll(store,cb){
 
 function saveRound(r,cb){
   rounds.unshift(r);
+  fbSaveRound(r);
   dbPut("rounds",r,cb);
 }
 
@@ -339,6 +426,7 @@ function loadAllRounds(cb){
 }
 
 function loadArchive(cb){
+  if(fbReady){fbLoadArchive(cb);return}
   dbGetAll("archive",function(data){
     archivedRounds=data.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
     if(cb)cb();
@@ -742,18 +830,29 @@ function seed(){
     rounds.push({id:ts.getTime().toString(36),site:"ARN60",areaId:a.id,areaName:a.name,group:a.group,alias:"almanath",ts:ts.toISOString(),shift:shift,status:bad?"issue":"ok",notes:bad?"Abnormal reading on panel B3.":""})}}}
   rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
 }
-// Initialize - try IndexedDB, fall back to in-memory
-try{
-  openDB(function(){
-    loadAllRounds(function(){
-      if(rounds.length===0){seed();
-        if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
-      }
-      try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
-    });
+// Initialize - Firebase for sync, IndexedDB as fallback
+if(fbReady){
+  // Use Firebase as primary data source
+  fbListenRounds(function(){
+    if(rounds.length===0){seed();
+      for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}
+    }
+    fbArchiveOld();
+    renderAll();
   });
-}catch(e){
-  seed();renderAll();
+}else{
+  try{
+    openDB(function(){
+      loadAllRounds(function(){
+        if(rounds.length===0){seed();
+          if(db){try{var tx=db.transaction("rounds","readwrite");var s=tx.objectStore("rounds");for(var i=0;i<rounds.length;i++)s.put(rounds[i])}catch(e2){}}
+        }
+        try{autoArchive(function(){renderAll();})}catch(e3){renderAll()}
+      });
+    });
+  }catch(e){
+    seed();renderAll();
+  }
 }
 
 // URL parameter handling — when a QR code is scanned
