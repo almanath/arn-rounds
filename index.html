@@ -207,6 +207,18 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   </div>
 </div>
 
+<div class="page" id="page-calendar">
+  <div class="site-sel" id="siteSelCal"></div>
+  <div class="sh"><span><i class="fa-solid fa-calendar-days" style="color:var(--pri);margin-right:4px"></i>Rounds Calendar</span></div>
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+    <button style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-size:12px" onclick="calNav(-1)"><i class="fa-solid fa-chevron-left"></i></button>
+    <div style="font-size:14px;font-weight:600" id="calMonthLabel"></div>
+    <button style="background:none;border:1px solid var(--border);color:var(--text2);border-radius:var(--rs);padding:6px 12px;cursor:pointer;font-size:12px" onclick="calNav(1)"><i class="fa-solid fa-chevron-right"></i></button>
+  </div>
+  <div id="calGrid"></div>
+  <div id="calDetail" style="margin-top:10px"></div>
+</div>
+
 <div class="page" id="page-settings">
   <div class="sh"><span>Settings</span></div>
   <div class="card">
@@ -289,6 +301,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <button class="nav-item" onclick="sp('history')" data-page="history"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
   <button class="nav-item" onclick="sp('issues')" data-page="issues"><i class="fa-solid fa-triangle-exclamation"></i>Issues</button>
   <button class="nav-item" onclick="sp('qr')" data-page="qr" id="navQR" style="display:none"><i class="fa-solid fa-print"></i>QR</button>
+  <button class="nav-item" onclick="sp('calendar')" data-page="calendar" id="navCalendar" style="display:none"><i class="fa-solid fa-calendar-days"></i>Calendar</button>
   <button class="nav-item" onclick="sp('archive')" data-page="archive" id="navArchive" style="display:none"><i class="fa-solid fa-box-archive"></i>Archive</button>
   <button class="nav-item" onclick="sp('admin')" data-page="admin" id="navAdmin" style="display:none"><i class="fa-solid fa-sliders"></i>Manage</button>
   <button class="nav-item" onclick="sp('settings')" data-page="settings" id="navSettings" style="display:none"><i class="fa-solid fa-gear"></i>Settings</button>
@@ -515,6 +528,7 @@ function sp(p){
   if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
   if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
   if(p==="archive"){renderArchSiteSel();rArch()}
+  if(p==="calendar"){renderCalSiteSel();rCalendar()}
   if(p==="issues"){renderIssuesSiteSel();rIssues()}
   if(p==="settings"){populateProxySiteSelect();loadProxies()}
   if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
@@ -704,16 +718,17 @@ function checkIssueReminders(){
 
 // ===== Weekly Report via Slack DM =====
 function getWeeklyReport(site){
+  // Report covers exactly the PREVIOUS week: Monday 07:00 to next Monday 07:00
   var now=new Date();var dow=now.getDay();var mondayOffset=(dow===0?6:dow-1);
-  var weekStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()-mondayOffset-7,7,0,0);
-  var weekEnd=new Date(weekStart.getTime()+7*86400000);
+  var thisMonday7=new Date(now.getFullYear(),now.getMonth(),now.getDate()-mondayOffset,7,0,0);
+  var lastMonday7=new Date(thisMonday7.getTime()-7*86400000);
   var areas=siteAreas[site];if(!areas)return null;
   var enabledAreas=0;for(var i=0;i<areas.length;i++){if(areas[i].enabled)enabledAreas++}
   if(enabledAreas===0)return null;
-  // Count shifts in the week
+  // Count shifts in the week (Mon-Sun, day+night each day = 14 shifts)
   var shiftsToCheck=[];
   for(var d=0;d<7;d++){
-    var dayDate=new Date(weekStart.getTime()+d*86400000);
+    var dayDate=new Date(lastMonday7.getTime()+d*86400000);
     var dateStr=dayDate.getFullYear()+"-"+(dayDate.getMonth()<9?"0":"")+(dayDate.getMonth()+1)+"-"+(dayDate.getDate()<10?"0":"")+dayDate.getDate();
     shiftsToCheck.push({date:dateStr,shift:"day"});
     shiftsToCheck.push({date:dateStr,shift:"night"});
@@ -736,7 +751,7 @@ function getWeeklyReport(site){
   }
   var missed=totalExpected-done;
   var pct=totalExpected>0?Math.round(done/totalExpected*100):0;
-  var wkLabel=weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+new Date(weekEnd.getTime()-86400000).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+  var wkLabel=lastMonday7.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+new Date(thisMonday7.getTime()-86400000).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
   return {site:site,weekLabel:wkLabel,total:totalExpected,done:done,missed:missed,issues:issues,issueList:issueList,pct:pct};
 }
 
@@ -748,6 +763,7 @@ function buildWeeklySlackMsg(reports){
     msg+=statusIcon+" *"+r.site+"*: "+r.done+"/"+r.total+" completed ("+r.pct+"%)";
     if(r.missed>0)msg+=" — *"+r.missed+" missed*";
     if(r.issues>0)msg+=" — *"+r.issues+" issue"+(r.issues>1?"s":"")+"*";
+    msg+="\n    :clipboard: Issues submitted this week: "+r.issues;
     msg+="\n";
     if(r.issueList.length>0){
       for(var j=0;j<r.issueList.length;j++){
@@ -987,6 +1003,139 @@ function rArchMissed(ls,st){
   ls.innerHTML=h;
 }
 
+// ===== Rounds Calendar =====
+var calSite="ARN60";var calMonth=new Date().getMonth();var calYear=new Date().getFullYear();
+var calMinMonth,calMaxMonth;
+(function(){var n=new Date();calMinMonth=new Date(n.getFullYear(),n.getMonth()-2,1);calMaxMonth=new Date(n.getFullYear(),n.getMonth()+2,1)})();
+
+function renderCalSiteSel(){
+  var el=document.getElementById("siteSelCal");if(!el)return;var h="";
+  var vs=getVisibleSites();
+  for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===calSite?" active":"")+"' onclick=\"setCalSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
+  el.innerHTML=h;
+}
+function setCalSite(s){calSite=s;renderCalSiteSel();rCalendar()}
+
+function calNav(dir){
+  var d=new Date(calYear,calMonth+dir,1);
+  if(d<calMinMonth||d>calMaxMonth)return;
+  calMonth=d.getMonth();calYear=d.getFullYear();rCalendar();
+}
+
+function rCalendar(){
+  var label=document.getElementById("calMonthLabel");
+  var grid=document.getElementById("calGrid");
+  var detail=document.getElementById("calDetail");
+  if(!label||!grid)return;
+  var monthNames=["January","February","March","April","May","June","July","August","September","October","November","December"];
+  label.textContent=monthNames[calMonth]+" "+calYear;
+  detail.innerHTML="";
+
+  var areas=siteAreas[calSite];if(!areas)return;
+  var enabledAreas=[];for(var i=0;i<areas.length;i++){if(areas[i].enabled)enabledAreas.push(areas[i])}
+  var totalCheckpoints=enabledAreas.length;
+
+  // Build header
+  var h="<table style='width:100%;border-collapse:collapse;font-size:11px'>";
+  h+="<thead><tr><th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Date</th>";
+  h+="<th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Day Shift</th>";
+  h+="<th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Night Shift</th></tr></thead><tbody>";
+
+  var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  var today=new Date();var todayStr=today.getFullYear()+"-"+(today.getMonth()<9?"0":"")+(today.getMonth()+1)+"-"+(today.getDate()<10?"0":"")+today.getDate();
+  var dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+
+  for(var d=1;d<=daysInMonth;d++){
+    var dt=new Date(calYear,calMonth,d);
+    var dateStr=calYear+"-"+(calMonth<9?"0":"")+(calMonth+1)+"-"+(d<10?"0":"")+d;
+    var dayName=dayNames[dt.getDay()];
+    var isFuture=dateStr>todayStr;
+
+    // Count completed rounds for each shift
+    var dayDone=0;var nightDone=0;
+    for(var ai=0;ai<enabledAreas.length;ai++){
+      var dayFound=false;var nightFound=false;
+      for(var ri=0;ri<rounds.length;ri++){
+        var r=rounds[ri];
+        if(r.site===calSite&&r.areaId===enabledAreas[ai].id&&getRoundDateFromTS(r.ts)===dateStr){
+          if(r.shift==="day")dayFound=true;
+          if(r.shift==="night")nightFound=true;
+        }
+      }
+      if(dayFound)dayDone++;
+      if(nightFound)nightDone++;
+    }
+
+    var dayMissed=totalCheckpoints-dayDone;
+    var nightMissed=totalCheckpoints-nightDone;
+    var dayComplete=dayDone===totalCheckpoints;
+    var nightComplete=nightDone===totalCheckpoints;
+
+    // Day cell
+    var dayCellStyle,dayCellContent,nightCellStyle,nightCellContent;
+    if(isFuture){
+      dayCellStyle="background:var(--bg);color:var(--muted);border-radius:var(--rs);padding:8px;text-align:center";
+      dayCellContent="<i class='fa-solid fa-minus' style='font-size:8px'></i>";
+      nightCellStyle=dayCellStyle;nightCellContent=dayCellContent;
+    } else {
+      if(dayComplete){
+        dayCellStyle="background:var(--ok-bg);border:1px solid #065f46;border-radius:var(--rs);padding:8px;text-align:center;color:var(--ok)";
+        dayCellContent="<i class='fa-solid fa-circle-check'></i>";
+      } else {
+        dayCellStyle="background:var(--err-bg);border:1px solid #7f1d1d;border-radius:var(--rs);padding:8px;text-align:center;color:var(--err);cursor:pointer";
+        dayCellContent="<i class='fa-solid fa-triangle-exclamation' style='margin-right:3px'></i>"+dayMissed;
+      }
+      if(nightComplete){
+        nightCellStyle="background:var(--ok-bg);border:1px solid #065f46;border-radius:var(--rs);padding:8px;text-align:center;color:var(--ok)";
+        nightCellContent="<i class='fa-solid fa-circle-check'></i>";
+      } else {
+        nightCellStyle="background:var(--err-bg);border:1px solid #7f1d1d;border-radius:var(--rs);padding:8px;text-align:center;color:var(--err);cursor:pointer";
+        nightCellContent="<i class='fa-solid fa-triangle-exclamation' style='margin-right:3px'></i>"+nightMissed;
+      }
+    }
+
+    var isToday=dateStr===todayStr?" font-weight:700;color:var(--pri)":"";
+    h+="<tr style='border-bottom:1px solid var(--border)'>";
+    h+="<td style='padding:8px 4px;"+isToday+"'><div style='font-weight:600'>"+d+"</div><div style='font-size:9px;color:var(--muted)'>"+dayName+"</div></td>";
+    if(isFuture){
+      h+="<td style='padding:4px'><div style='"+dayCellStyle+"'>"+dayCellContent+"</div></td>";
+      h+="<td style='padding:4px'><div style='"+nightCellStyle+"'>"+nightCellContent+"</div></td>";
+    } else {
+      var dayClick=dayComplete?"":"onclick=\"showCalDetail('"+dateStr+"','day')\"";
+      var nightClick=nightComplete?"":"onclick=\"showCalDetail('"+dateStr+"','night')\"";
+      h+="<td style='padding:4px'><div style='"+dayCellStyle+"' "+dayClick+">"+dayCellContent+"</div></td>";
+      h+="<td style='padding:4px'><div style='"+nightCellStyle+"' "+nightClick+">"+nightCellContent+"</div></td>";
+    }
+    h+="</tr>";
+  }
+  h+="</tbody></table>";
+  grid.innerHTML=h;
+}
+
+function showCalDetail(dateStr,shift){
+  var detail=document.getElementById("calDetail");if(!detail)return;
+  var areas=siteAreas[calSite];if(!areas)return;
+  var shiftLabel=shift==="day"?"Day Shift":"Night Shift";
+  var h="<div class='card' style='border-color:var(--err)'><div style='font-size:12px;font-weight:600;margin-bottom:8px'><i class='fa-solid fa-triangle-exclamation' style='color:var(--err);margin-right:4px'></i>Missed Rounds — "+dateStr+" "+shiftLabel+"</div>";
+  var count=0;
+  for(var i=0;i<areas.length;i++){
+    var a=areas[i];if(!a.enabled)continue;
+    var found=false;
+    for(var j=0;j<rounds.length;j++){
+      var r=rounds[j];
+      if(r.site===calSite&&r.areaId===a.id&&r.shift===shift&&getRoundDateFromTS(r.ts)===dateStr){found=true;break}
+    }
+    if(!found){
+      count++;
+      h+="<div style='display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)'><i class='fa-regular fa-circle' style='color:var(--err);font-size:10px'></i><span style='font-size:11px;font-weight:600'>"+a.id+"</span><span style='font-size:10px;color:var(--muted)'>"+a.name+"</span></div>";
+    }
+  }
+  if(count===0)h+="<div style='font-size:11px;color:var(--ok)'>All rounds completed!</div>";
+  h+="</div>";
+  detail.innerHTML=h;
+  detail.scrollIntoView({behavior:"smooth"});
+}
+
 // ===== Submitted Issues Page =====
 var issuesSite="ARN60";
 function renderIssuesSiteSel(){
@@ -1152,6 +1301,7 @@ function showMgrUI(){
   document.getElementById("navOverview").style.display="flex";
   document.getElementById("navQR").style.display="flex";
   document.getElementById("navArchive").style.display="flex";
+  document.getElementById("navCalendar").style.display="flex";
   // Proxy gets view access but not settings/admin
   if(mgrRole!=="proxy")document.getElementById("navSettings").style.display="flex";
   if(mgrRole==="admin")document.getElementById("navAdmin").style.display="flex";
@@ -1164,7 +1314,7 @@ function showMgrUI(){
   var roleText=mgrRole==="admin"?"ADMIN":mgrRole==="proxy"?"PROXY":"MANAGER";
   var roleClass=mgrRole==="admin"?"admin":mgrRole==="proxy"?"ce":"fm";
   rb.textContent=roleText;rb.className="rb "+roleClass;
-  if(mgrSite){curSite=mgrSite;archSite=mgrSite}
+  if(mgrSite){curSite=mgrSite;archSite=mgrSite;calSite=mgrSite}
   sp("overview");
 }
 
@@ -1175,6 +1325,7 @@ function doMgrLogout(){
   document.getElementById("navArchive").style.display="none";
   document.getElementById("navAdmin").style.display="none";
   document.getElementById("navSettings").style.display="none";
+  document.getElementById("navCalendar").style.display="none";
   document.getElementById("hdrMgrBtn").style.display="flex";
   document.getElementById("hdrUserPill").style.display="none";
   sp("status");
