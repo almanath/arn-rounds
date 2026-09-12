@@ -64,12 +64,23 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 .err-msg{font-size:11px;color:var(--err);margin-bottom:6px;display:none}
 .notif{position:fixed;top:70px;right:16px;background:var(--bg-card);border:1px solid var(--warn);border-radius:var(--r);padding:12px 16px;z-index:300;max-width:300px;box-shadow:0 4px 20px rgba(0,0,0,.5);display:none}
 .notif.show{display:block}.notif .ntitle{font-size:11px;font-weight:600;color:var(--warn);margin-bottom:3px}.notif .nmsg{font-size:10px;color:var(--text2)}
-.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:10px}
-.qr-card{background:#fff;border-radius:var(--rs);padding:12px;text-align:center}
-.qr-card img{width:100%;max-width:180px;height:auto;margin-bottom:6px}
+.qr-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px}
+.qr-card{background:#fff;border-radius:var(--rs);padding:14px;text-align:center}
+.qr-card img{width:100%;max-width:260px;height:auto;margin-bottom:6px}
 .qr-card .qr-label{font-size:11px;font-weight:700;color:#1e293b}.qr-card .qr-site{font-size:9px;color:#64748b}
-@media print{body{background:#fff;color:#000;padding:0}.page,.hdr,.nav,.notif,.sov{display:none!important}#page-qr{display:block!important;padding:10px}
-.qr-grid{grid-template-columns:repeat(3,1fr);gap:8px}.qr-card{border:1px solid #ccc;break-inside:avoid}.site-sel,.flts,.sh,.sx{display:none!important}}
+@media print{
+  @page{size:A4 portrait;margin:12mm}
+  body{background:#fff;color:#000;padding:0}
+  .page,.hdr,.nav,.notif,.sov{display:none!important}
+  #page-qr{display:block!important;padding:0}
+  .qr-grid{display:grid!important;grid-template-columns:1fr 1fr!important;gap:16px!important}
+  .qr-card{border:1px solid #ccc;break-inside:avoid;page-break-inside:avoid;padding:16px}
+  .qr-card:nth-child(2n+1):nth-last-child(n+2),.qr-card:nth-child(2n+1):nth-last-child(n+2)+.qr-card{page-break-after:auto}
+  .qr-card:nth-child(2n){page-break-after:always}
+  .qr-card img{max-width:100%!important;width:100%!important}
+  .qr-card .qr-label{font-size:16px!important;margin-top:4px}.qr-card .qr-site{font-size:12px!important}
+  .site-sel,.flts,.sh,.sx,#qrBaseInput,.sub-btn{display:none!important}
+}
 </style>
 </head>
 <body>
@@ -525,7 +536,7 @@ function rQR(){
   }
   for(var i=0;i<areas.length;i++){var a=areas[i];if(!a.enabled)continue;
     var url=base+"?site="+curSite+"&checkpoint="+encodeURIComponent(a.id);
-    var qrUrl="https://quickchart.io/qr?text="+encodeURIComponent(url)+"&size=400&margin=2&dark=000000&light=ffffff&format=png";
+    var qrUrl="https://quickchart.io/qr?text="+encodeURIComponent(url)+"&size=600&margin=2&dark=000000&light=ffffff&format=png";
     h+="<div class='qr-card'><img src='"+qrUrl+"' alt='"+a.id+"' loading='lazy'><div class='qr-label'>"+a.id+"</div><div class='qr-site'>"+curSite+" \u2014 "+a.name+"</div></div>"}
   grid.innerHTML=h;var qn=document.getElementById("qrSiteName");if(qn)qn.textContent=curSite;
 }
