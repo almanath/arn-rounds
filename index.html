@@ -1115,11 +1115,16 @@ function loadProxies(){
 }
 
 function revokeProxy(key){
-  if(!fbReady)return;
   if(!confirm("Remove this proxy? Their access will be revoked immediately."))return;
-  fbDb.ref("proxies/"+key+"/active").set(false);
-  fbDb.ref("proxies/"+key+"/end").set(new Date().toISOString().split("T")[0]);
-  loadProxies();
+  console.log("[Proxy] Revoking:",key,"fbReady:",fbReady);
+  if(fbReady){
+    try{
+      fbDb.ref("proxies/"+key).remove().then(function(){console.log("[Proxy] Removed from Firebase");loadProxies()}).catch(function(e){console.warn("[Proxy] Firebase remove error:",e);loadProxies()});
+    }catch(e){console.warn("[Proxy] Error:",e);loadProxies()}
+  } else {
+    console.warn("[Proxy] Firebase not ready — cannot remove");
+    alert("Unable to remove proxy — database not connected. Try refreshing the page.");
+  }
 }
 
 // Check if a PIN matches an active proxy
