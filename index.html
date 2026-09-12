@@ -1101,16 +1101,21 @@ function loadProxies(){
           continue;
         }
         count++;
-        h+="<div style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'>";
+        h+="<div style='display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)'>";
         h+="<div style='flex:1'><div style='font-size:11px;font-weight:600'>"+p.name+" <span style='color:var(--muted);font-weight:400'>("+p.alias+")</span></div>";
         h+="<div style='font-size:9px;color:var(--text2)'>"+p.site+" \u00b7 "+p.start+" to "+p.end+"</div></div>";
         h+="<div style='font-size:10px;color:var(--pri);font-family:var(--fm)'>PIN: "+p.pin+"</div>";
-        h+="<button style='background:var(--err-bg);border:1px solid var(--err);color:var(--err);font-size:10px;cursor:pointer;padding:5px 10px;border-radius:var(--rs);font-weight:600;font-family:inherit;margin-left:6px' onclick=\"revokeProxy('"+key+"')\"><i class='fa-solid fa-trash-can' style='margin-right:3px'></i>Remove</button>";
+        h+='<button data-revoke="'+key+'" style="background:var(--err-bg);border:1px solid var(--err);color:var(--err);font-size:10px;cursor:pointer;padding:5px 10px;border-radius:var(--rs);font-weight:600;font-family:inherit;margin-left:6px"><i class="fa-solid fa-trash-can" style="margin-right:3px"></i>Remove</button>';
         h+="</div>";
       }
     }
     if(!count)h="<div style='font-size:10px;color:var(--muted)'>No active proxies</div>";
     el.innerHTML=h;
+    // Attach click handlers for remove buttons
+    var btns=el.querySelectorAll("[data-revoke]");
+    for(var b=0;b<btns.length;b++){
+      btns[b].addEventListener("click",(function(k){return function(){revokeProxy(k)}})(btns[b].getAttribute("data-revoke")));
+    }
   });
 }
 
