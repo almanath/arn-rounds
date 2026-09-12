@@ -772,21 +772,41 @@ function rAdmin(){
 function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
 
 function rMgrs(){
-  var el=document.getElementById("mgrList");if(!el)return;var h="";
+  var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
   for(var i=0;i<SITES.length;i++){var s=SITES[i];var mgr=siteMgrs[s]||"";var ce=siteCEs[s]||"";var mp=DIR[mgr];var cp=DIR[ce];
+    var ro=isAdmin?"":" readonly style='opacity:.7;cursor:default'";
     h+="<div style='padding:8px 0;border-bottom:1px solid var(--border)'>";
     h+="<div style='font-size:10px;color:var(--pri);font-weight:700;font-family:var(--fm);margin-bottom:5px'>"+s+"</div>";
     h+="<div style='display:flex;align-items:flex-start;gap:4px;margin-bottom:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>FM</div><div style='flex:1'>";
-    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+mgr+"' id='mgr-"+s+"' onchange=\"setR('mgr','"+s+"')\">";
+    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+mgr+"' id='mgr-"+s+"' onchange=\"setR('mgr','"+s+"')\""+ro+">";
     if(mp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+mp.n+"</div>";
     h+="</div></div>";
     h+="<div style='display:flex;align-items:flex-start;gap:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>CE</div><div style='flex:1'>";
-    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+ce+"' id='ce-"+s+"' onchange=\"setR('ce','"+s+"')\">";
+    h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+ce+"' id='ce-"+s+"' onchange=\"setR('ce','"+s+"')\""+ro+">";
     if(cp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+cp.n+"</div>";
     h+="</div></div></div>"}
+  if(isAdmin)h+="<div style='font-size:9px;color:var(--text2);margin-top:6px'><i class='fa-solid fa-info-circle' style='margin-right:3px'></i>Changes are saved automatically and update who receives weekly reports.</div>";
   el.innerHTML=h;
 }
-function setR(role,site){var prefix=role==="mgr"?"mgr-":"ce-";var inp=document.getElementById(prefix+site);if(!inp)return;var v=inp.value.trim().toLowerCase();if(role==="mgr")siteMgrs[site]=v;else siteCEs[site]=v;rMgrs()}
+function setR(role,site){
+  if(mgrRole!=="admin"){return}
+  var prefix=role==="mgr"?"mgr-":"ce-";var inp=document.getElementById(prefix+site);if(!inp)return;
+  var v=inp.value.trim().toLowerCase();
+  if(role==="mgr")siteMgrs[site]=v;else siteCEs[site]=v;
+  rMgrs();
+  // Save to Firebase
+  if(fbReady){try{fbDb.ref("config/siteMgrs").set(siteMgrs);fbDb.ref("config/siteCEs").set(siteCEs);console.log("[Config] Saved "+role+" for "+site+": "+v)}catch(e){}}
+  // Also save to localStorage as fallback
+  try{localStorage.setItem("siteMgrs",JSON.stringify(siteMgrs));localStorage.setItem("siteCEs",JSON.stringify(siteCEs))}catch(e){}
+}
+
+// Load saved manager/chief assignments
+function loadMgrAssignments(){
+  // Try Firebase first
+  if(fbReady){try{fbDb.ref("config/siteMgrs").once("value",function(snap){var d=snap.val();if(d){for(var k in d){if(d.hasOwnProperty(k))siteMgrs[k]=d[k]}rMgrs()}});fbDb.ref("config/siteCEs").once("value",function(snap){var d=snap.val();if(d){for(var k in d){if(d.hasOwnProperty(k))siteCEs[k]=d[k]}rMgrs()}})}catch(e){}}
+  // Fallback to localStorage
+  else{try{var m=JSON.parse(localStorage.getItem("siteMgrs")||"{}");var c=JSON.parse(localStorage.getItem("siteCEs")||"{}");for(var k in m){if(m.hasOwnProperty(k))siteMgrs[k]=m[k]}for(var k2 in c){if(c.hasOwnProperty(k2))siteCEs[k2]=c[k2]}rMgrs()}catch(e){}}
+}
 
 function renderArchSiteSel(){
   var el=document.getElementById("siteSelArch");if(!el)return;var h="";
@@ -1192,6 +1212,7 @@ checkQRParams();
           fbApp=firebase.initializeApp(firebaseConfig);
           fbDb=firebase.database();
           fbReady=true;
+          try{loadMgrAssignments()}catch(e){}
           // Sync with Firebase - listen for real-time updates
           fbListenRounds(function(){
             if(rounds.length===0){
