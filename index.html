@@ -214,12 +214,14 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <div style="margin-bottom:8px">
       <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em"><i class="fa-brands fa-slack" style="margin-right:3px"></i>Slack Bot Token</label>
       <input type="text" class="sx" id="slackBotTokenInput" placeholder="xoxb-..." style="margin-bottom:2px" oninput="saveAlertConfig()">
-      <div style="font-size:9px;color:var(--text2)">Create a Slack App at <a href="https://api.slack.com/apps" target="_blank" style="color:var(--pri)">api.slack.com/apps</a> with <code>chat:write</code> and <code>users:lookupByEmail</code> scopes. Install to workspace, then copy the Bot User OAuth Token.</div>
+      <div style="font-size:9px;color:var(--text2)">Create a Slack App at <a href="https://api.slack.com/apps" target="_blank" style="color:var(--pri)">api.slack.com/apps</a> with <code>chat:write</code> and <code>im:write</code> scopes.</div>
     </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
     <div style="margin-bottom:8px">
-      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Email domain</label>
-      <input type="text" class="sx" id="slackEmailDomainInput" placeholder="amazon.com" style="margin-bottom:2px" oninput="saveAlertConfig()">
-      <div style="font-size:9px;color:var(--text2)">Appended to the submitter's alias to look up their Slack account (e.g. alias@amazon.com)</div>
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em"><i class="fa-brands fa-slack" style="margin-right:3px"></i>Slack Member IDs</label>
+      <div style="font-size:9px;color:var(--text2);margin-bottom:6px">Map each alias to their Slack Member ID. Find it in Slack: click someone's name → ⋮ → Copy Member ID.</div>
+      <div id="slackIdList"></div>
+      <button class="sub-btn" style="font-size:11px;padding:8px;margin-top:6px" onclick="addSlackIdRow()"><i class="fa-solid fa-plus"></i> Add person</button>
     </div>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
     <div style="margin-bottom:8px">
@@ -543,11 +545,11 @@ function doSubmit(){
 }
 
 // ===== Issue Alert Config (Slack + Email) =====
-var alertConfig={slackBotToken:"",slackEmailDomain:"amazon.com",emailjsService:"",emailjsTemplate:"",emailjsKey:"",alertEmail:""};
+var alertConfig={slackBotToken:"",slackIds:{},emailjsService:"",emailjsTemplate:"",emailjsKey:"",alertEmail:""};
 function loadAlertConfig(){
   try{var c=JSON.parse(localStorage.getItem("alertConfig")||"{}");
     if(c.slackBotToken)alertConfig.slackBotToken=c.slackBotToken;
-    if(c.slackEmailDomain)alertConfig.slackEmailDomain=c.slackEmailDomain;
+    if(c.slackIds)alertConfig.slackIds=c.slackIds;
     if(c.emailjsService)alertConfig.emailjsService=c.emailjsService;
     if(c.emailjsTemplate)alertConfig.emailjsTemplate=c.emailjsTemplate;
     if(c.emailjsKey)alertConfig.emailjsKey=c.emailjsKey;
@@ -555,22 +557,56 @@ function loadAlertConfig(){
   }catch(e){}
   // Populate inputs if they exist
   var f=document.getElementById("slackBotTokenInput");if(f)f.value=alertConfig.slackBotToken;
-  f=document.getElementById("slackEmailDomainInput");if(f)f.value=alertConfig.slackEmailDomain;
   f=document.getElementById("emailjsServiceInput");if(f)f.value=alertConfig.emailjsService;
   f=document.getElementById("emailjsTemplateInput");if(f)f.value=alertConfig.emailjsTemplate;
   f=document.getElementById("emailjsKeyInput");if(f)f.value=alertConfig.emailjsKey;
   f=document.getElementById("alertEmailInput");if(f)f.value=alertConfig.alertEmail;
+  renderSlackIdList();
   updateAlertStatus();
 }
 function saveAlertConfig(){
   alertConfig.slackBotToken=(document.getElementById("slackBotTokenInput")||{}).value||"";
-  alertConfig.slackEmailDomain=(document.getElementById("slackEmailDomainInput")||{}).value||"amazon.com";
   alertConfig.emailjsService=(document.getElementById("emailjsServiceInput")||{}).value||"";
   alertConfig.emailjsTemplate=(document.getElementById("emailjsTemplateInput")||{}).value||"";
   alertConfig.emailjsKey=(document.getElementById("emailjsKeyInput")||{}).value||"";
   alertConfig.alertEmail=(document.getElementById("alertEmailInput")||{}).value||"";
+  // Save slack IDs from the input rows
+  saveSlackIds();
   try{localStorage.setItem("alertConfig",JSON.stringify(alertConfig))}catch(e){}
+  // Also save to Firebase
+  if(fbReady){try{fbDb.ref("config/alertConfig").set(alertConfig)}catch(e){}}
   updateAlertStatus();
+}
+function renderSlackIdList(){
+  var el=document.getElementById("slackIdList");if(!el)return;var h="";
+  var ids=alertConfig.slackIds||{};
+  for(var alias in ids){
+    if(!ids.hasOwnProperty(alias))continue;
+    h+="<div style='display:flex;gap:4px;margin-bottom:4px;align-items:center'>";
+    h+="<input type='text' class='sx' style='flex:1;margin-bottom:0;font-size:11px' value='"+alias+"' data-slackid-alias placeholder='alias'>";
+    h+="<input type='text' class='sx' style='flex:1;margin-bottom:0;font-size:11px;font-family:var(--fm)' value='"+ids[alias]+"' data-slackid-value placeholder='U0123ABC456'>";
+    h+="<button style='background:none;border:none;color:var(--err);font-size:14px;cursor:pointer;padding:4px' onclick='this.parentElement.remove();saveAlertConfig()'><i class='fa-solid fa-xmark'></i></button>";
+    h+="</div>";
+  }
+  el.innerHTML=h;
+}
+function addSlackIdRow(){
+  var el=document.getElementById("slackIdList");if(!el)return;
+  var row=document.createElement("div");row.style="display:flex;gap:4px;margin-bottom:4px;align-items:center";
+  row.innerHTML="<input type='text' class='sx' style='flex:1;margin-bottom:0;font-size:11px' data-slackid-alias placeholder='alias' onchange='saveAlertConfig()'>"
+    +"<input type='text' class='sx' style='flex:1;margin-bottom:0;font-size:11px;font-family:var(--fm)' data-slackid-value placeholder='U0123ABC456' onchange='saveAlertConfig()'>"
+    +"<button style='background:none;border:none;color:var(--err);font-size:14px;cursor:pointer;padding:4px' onclick='this.parentElement.remove();saveAlertConfig()'><i class='fa-solid fa-xmark'></i></button>";
+  el.appendChild(row);
+}
+function saveSlackIds(){
+  var rows=document.querySelectorAll("[data-slackid-alias]");
+  var ids={};
+  for(var i=0;i<rows.length;i++){
+    var alias=rows[i].value.trim().toLowerCase();
+    var val=rows[i].nextElementSibling.value.trim();
+    if(alias&&val)ids[alias]=val;
+  }
+  alertConfig.slackIds=ids;
 }
 function updateAlertStatus(){
   var el=document.getElementById("alertStatus");if(!el)return;
@@ -581,27 +617,21 @@ function updateAlertStatus(){
   else{el.innerHTML="<span style='color:var(--warn)'><i class='fa-solid fa-triangle-exclamation'></i> No alerts configured</span>"}
 }
 
-// Slack Bot: look up user by email, then DM them
+// Slack Bot: DM user by their Slack Member ID
 function slackDM(alias,text){
   if(!alertConfig.slackBotToken)return;
-  var email=alias+"@"+alertConfig.slackEmailDomain;
+  var userId=alertConfig.slackIds[alias];
+  if(!userId){console.warn("[Slack] No Slack ID mapped for alias:",alias);return}
   var token=alertConfig.slackBotToken;
-  // Step 1: look up Slack user ID by email
-  fetch("https://slack.com/api/users.lookupByEmail?email="+encodeURIComponent(email),{headers:{"Authorization":"Bearer "+token}})
+  // Step 1: open a DM conversation
+  fetch("https://slack.com/api/conversations.open",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({users:userId})})
     .then(function(r){return r.json()})
-    .then(function(data){
-      if(!data.ok){console.warn("[Slack] lookupByEmail failed:",data.error);return}
-      var userId=data.user.id;
-      // Step 2: open a DM conversation
-      return fetch("https://slack.com/api/conversations.open",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({users:userId})})
+    .then(function(conv){
+      if(!conv.ok){console.warn("[Slack] conversations.open failed:",conv.error);return}
+      // Step 2: send the DM
+      return fetch("https://slack.com/api/chat.postMessage",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({channel:conv.channel.id,text:text,unfurl_links:false})})
         .then(function(r){return r.json()})
-        .then(function(conv){
-          if(!conv.ok){console.warn("[Slack] conversations.open failed:",conv.error);return}
-          // Step 3: send the DM
-          return fetch("https://slack.com/api/chat.postMessage",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({channel:conv.channel.id,text:text,unfurl_links:false})})
-            .then(function(r){return r.json()})
-            .then(function(msg){if(msg.ok)console.log("[Slack] DM sent to "+alias);else console.warn("[Slack] postMessage failed:",msg.error)});
-        });
+        .then(function(msg){if(msg.ok)console.log("[Slack] DM sent to "+alias);else console.warn("[Slack] postMessage failed:",msg.error)});
     })
     .catch(function(e){console.warn("[Slack] DM error:",e)});
 }
@@ -1121,13 +1151,13 @@ function loadProxies(){
 
 function revokeProxy(key){
   if(!confirm("Remove this proxy? Their access will be revoked immediately."))return;
-  console.log("[Proxy] Revoking:",key,"fbReady:",fbReady);
   if(fbReady){
-    try{
-      fbDb.ref("proxies/"+key).remove().then(function(){console.log("[Proxy] Removed from Firebase");loadProxies()}).catch(function(e){console.warn("[Proxy] Firebase remove error:",e);loadProxies()});
-    }catch(e){console.warn("[Proxy] Error:",e);loadProxies()}
+    fbDb.ref("proxies/"+key).set(null,function(err){
+      if(err){alert("Failed to remove proxy: "+err.message)}
+      else{alert("Proxy removed successfully")}
+      loadProxies();
+    });
   } else {
-    console.warn("[Proxy] Firebase not ready — cannot remove");
     alert("Unable to remove proxy — database not connected. Try refreshing the page.");
   }
 }
@@ -1224,6 +1254,8 @@ checkQRParams();
           fbDb=firebase.database();
           fbReady=true;
           try{loadMgrAssignments()}catch(e){}
+          // Load alert config from Firebase (Slack IDs, bot token, etc.)
+          try{fbDb.ref("config/alertConfig").once("value",function(snap){var d=snap.val();if(d){alertConfig=d;loadAlertConfig()}})}catch(e){}
           // Sync with Firebase - listen for real-time updates
           fbListenRounds(function(){
             if(rounds.length===0){
