@@ -200,8 +200,8 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <div class="card">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)
     <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0" onclick="toggleAllAreas(true)"><i class="fa-solid fa-toggle-on"></i> Activate All</button>
-      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)" onclick="toggleAllAreas(false)"><i class="fa-solid fa-toggle-off"></i> Deactivate All</button>
+      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0" id="btnActivateAll"><i class="fa-solid fa-toggle-on"></i> Activate All</button>
+      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)" id="btnDeactivateAll"><i class="fa-solid fa-toggle-off"></i> Deactivate All</button>
     </div>
     <div id="adminList"></div>
   </div>
@@ -860,6 +860,8 @@ function rAdmin(){
 }
 function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
 function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;rAdmin();rgg()}
+var _ba=document.getElementById("btnActivateAll");if(_ba)_ba.addEventListener("click",function(){toggleAllAreas(true)});
+var _bd=document.getElementById("btnDeactivateAll");if(_bd)_bd.addEventListener("click",function(){toggleAllAreas(false)});
 
 function rMgrs(){
   var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
