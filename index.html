@@ -170,6 +170,16 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <div class="qr-grid" id="qrGrid"></div>
 </div>
 
+<div class="page" id="page-issues">
+  <div class="site-sel" id="siteSelIssues"></div>
+  <div class="sh"><span><i class="fa-solid fa-triangle-exclamation" style="color:var(--warn);margin-right:4px"></i>Submitted Issues</span></div>
+  <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Active issues from the last 10 days. Mark as fixed when resolved.</p>
+  <div style="display:flex;gap:6px;margin-bottom:10px">
+    <button class="sub-btn" style="flex:0 0 auto;font-size:11px;padding:8px 14px;margin-top:0" onclick="downloadIssues()"><i class="fa-solid fa-download" style="margin-right:3px"></i>Download Issues</button>
+  </div>
+  <div id="issuesList"></div>
+</div>
+
 <div class="page" id="page-archive">
   <div class="site-sel" id="siteSelArch"></div>
   <div class="sh"><span><i class="fa-solid fa-box-archive" style="color:var(--pri);margin-right:4px"></i>Archive</span></div>
@@ -188,7 +198,11 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <div id="mgrList"></div>
   </div>
   <div class="card">
-    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)">ARN60</span></div>
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)
+    <div style="display:flex;gap:6px;margin-bottom:8px">
+      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0" onclick="toggleAllAreas(true)"><i class="fa-solid fa-toggle-on"></i> Activate All</button>
+      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)" onclick="toggleAllAreas(false)"><i class="fa-solid fa-toggle-off"></i> Deactivate All</button>
+    </div>
     <div id="adminList"></div>
   </div>
 </div>
@@ -273,6 +287,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <button class="nav-item active" onclick="sp('status')" data-page="status"><i class="fa-solid fa-clipboard-check"></i>Status</button>
   <button class="nav-item" onclick="sp('overview')" data-page="overview" id="navOverview" style="display:none"><i class="fa-solid fa-chart-line"></i>Overview</button>
   <button class="nav-item" onclick="sp('history')" data-page="history"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
+  <button class="nav-item" onclick="sp('issues')" data-page="issues"><i class="fa-solid fa-triangle-exclamation"></i>Issues</button>
   <button class="nav-item" onclick="sp('qr')" data-page="qr" id="navQR" style="display:none"><i class="fa-solid fa-print"></i>QR</button>
   <button class="nav-item" onclick="sp('archive')" data-page="archive" id="navArchive" style="display:none"><i class="fa-solid fa-box-archive"></i>Archive</button>
   <button class="nav-item" onclick="sp('admin')" data-page="admin" id="navAdmin" style="display:none"><i class="fa-solid fa-sliders"></i>Manage</button>
@@ -340,6 +355,7 @@ var appStarted=false;
 var SITE_PINS={ARN50:"5023",ARN51:"5147",ARN52:"5269",ARN60:"6034",ARN61:"6158",ARN62:"6271"};
 var ADMIN_PIN="9999";
 var mgrMode=false;var mgrSite=null;var mgrRole=null;
+var weeklyReportEnabled={};
 
 var siteMgrs={ARN50:"mohagale",ARN51:"yukselon",ARN52:"jskeppar",ARN60:"mohagale",ARN61:"yukselon",ARN62:"jskeppar"};
 var siteCEs={ARN50:"hueprest",ARN51:"edwinahl",ARN52:"mathebc",ARN60:"albihngc",ARN61:"edwinahl",ARN62:"xabergem"};
@@ -362,7 +378,9 @@ var AREAS_6X=[
 {id:"ER-2.1C",name:"ER 2.1C",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},{id:"ER-2.3",name:"ER 2.3",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},{id:"ER-2.6",name:"ER 2.6",group:"Electrical Rooms \u2014 1F",icon:"fa-plug",enabled:true},
 {id:"DAHU-W-GF-1",name:"DAHU West GF #1",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-GF-2",name:"DAHU West GF #2",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-1F-1",name:"DAHU West 1F #1",group:"DAHU West",icon:"fa-wind",enabled:true},{id:"DAHU-W-1F-2",name:"DAHU West 1F #2",group:"DAHU West",icon:"fa-wind",enabled:true},
 {id:"DAHU-E-GF-1",name:"DAHU East GF #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-GF-2",name:"DAHU East GF #2",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-1",name:"DAHU East 1F #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-2",name:"DAHU East 1F #2",group:"DAHU East",icon:"fa-wind",enabled:true},
-{id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},{id:"FUEL-FARM",name:"Fuel Farm",group:"Other",icon:"fa-gas-pump",enabled:true}
+{id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},{id:"FUEL-FARM",name:"Fuel Farm",group:"Other",icon:"fa-gas-pump",enabled:true},
+{id:"ER-ADMIN",name:"ER Admin",group:"Facility Rooms",icon:"fa-door-open",enabled:true},{id:"IW-ROOM",name:"IW Room",group:"Facility Rooms",icon:"fa-door-open",enabled:true},
+{id:"SPRINKLER",name:"Sprinkler Room",group:"Facility Rooms",icon:"fa-shower",enabled:true}
 ];
 var AREAS_61=AREAS_6X.concat([{id:"FP-1",name:"Fire Pump 1",group:"Other",icon:"fa-fire-extinguisher",enabled:true},{id:"FP-2",name:"Fire Pump 2",group:"Other",icon:"fa-fire-extinguisher",enabled:true}]);
 var AREAS_5X=[
@@ -497,6 +515,7 @@ function sp(p){
   if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
   if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
   if(p==="archive"){renderArchSiteSel();rArch()}
+  if(p==="issues"){renderIssuesSiteSel();rIssues()}
   if(p==="settings"){populateProxySiteSelect();loadProxies()}
   if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
 }
@@ -653,9 +672,35 @@ function scheduleIssueReminder(areaId,site,notes,submitterAlias){
         .catch(function(e){console.warn("[Alert] Email failed:",e)});
     }catch(e){console.warn("[Alert] Email error:",e)}
   }
+  // Schedule 3-day follow-up reminder via Firebase
+  if(fbReady&&alertConfig.slackBotToken&&submitterAlias){
+    var ids=alertConfig.slackIds||{};var userId=ids[submitterAlias];
+    if(userId){
+      var reminderText="\ud83d\udd14 *Reminder: Issue follow-up needed*\nYou reported an issue at *"+areaId+"* @ *"+site+"* 3 days ago.\n"+(notes?notes+"\n":"")+ "\nHas this been resolved? Check the Issues page to mark it as fixed.";
+      var reminderEntry={token:alertConfig.slackBotToken,userId:userId,alias:submitterAlias,text:reminderText,status:"pending",ts:new Date().toISOString(),fireAt:new Date(Date.now()+3*24*60*60*1000).toISOString()};
+      try{fbDb.ref("issueReminders").push(reminderEntry)}catch(e){}
+    }
+  }
 }
 // Load config on startup
 try{loadAlertConfig()}catch(e){}
+
+// Check and fire any pending 3-day issue reminders
+function checkIssueReminders(){
+  if(!fbReady||!alertConfig.slackBotToken)return;
+  fbDb.ref("issueReminders").once("value",function(snap){
+    var data=snap.val();if(!data)return;
+    var now=Date.now();
+    for(var key in data){
+      if(!data.hasOwnProperty(key))continue;
+      var r=data[key];
+      if(new Date(r.fireAt).getTime()<=now&&r.status==="pending"){
+        fbDb.ref("slackQueue").push({token:r.token,userId:r.userId,alias:r.alias,text:r.text,status:"pending",ts:new Date().toISOString()});
+        fbDb.ref("issueReminders/"+key).remove();
+      }
+    }
+  });
+}
 
 // ===== Weekly Report via Slack DM =====
 function getWeeklyReport(site){
@@ -729,6 +774,7 @@ function sendWeeklyReports(){
   // Send a DM to each alias with their sites' reports
   for(var alias in aliasToSites){
     if(!aliasToSites.hasOwnProperty(alias))continue;
+    if(weeklyReportEnabled[alias]===false){console.log("[Weekly] Skipped "+alias+" (disabled)");continue}
     var sites=aliasToSites[alias];
     var reports=[];
     for(var si=0;si<sites.length;si++){
@@ -796,6 +842,7 @@ function rAdmin(){
   document.getElementById("adminList").innerHTML=h;
 }
 function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
+function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;rAdmin();rgg()}
 
 function rMgrs(){
   var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
@@ -806,10 +853,16 @@ function rMgrs(){
     h+="<div style='display:flex;align-items:flex-start;gap:4px;margin-bottom:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>FM</div><div style='flex:1'>";
     h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+mgr+"' id='mgr-"+s+"' onchange=\"setR('mgr','"+s+"')\""+ro+">";
     if(mp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+mp.n+"</div>";
+    if(mgr){var wkFM=weeklyReportEnabled[mgr]!==false;
+    h+="<div style='display:flex;align-items:center;gap:6px;margin-top:3px'><label style='font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px'><input type='checkbox' "+(wkFM?"checked":"")+" onchange=\"toggleWeeklyReport('"+mgr+"',this.checked)\"> Weekly report</label>";
+    h+="<button style='background:var(--bg);border:1px solid var(--border);color:var(--text2);font-size:9px;padding:2px 6px;border-radius:4px;cursor:pointer' onclick=\"testWeeklyReport('"+mgr+"')\">Test</button></div>";}
     h+="</div></div>";
     h+="<div style='display:flex;align-items:flex-start;gap:4px'><div style='min-width:30px;font-size:9px;color:var(--muted);padding-top:8px'>CE</div><div style='flex:1'>";
     h+="<input type='text' class='sx' style='margin-bottom:0;font-size:11px' value='"+ce+"' id='ce-"+s+"' onchange=\"setR('ce','"+s+"')\""+ro+">";
     if(cp)h+="<div style='font-size:9px;color:var(--ok);margin-top:1px'><i class='fa-solid fa-check' style='margin-right:2px'></i>"+cp.n+"</div>";
+    if(ce){var wkCE=weeklyReportEnabled[ce]!==false;
+    h+="<div style='display:flex;align-items:center;gap:6px;margin-top:3px'><label style='font-size:9px;color:var(--muted);display:flex;align-items:center;gap:3px'><input type='checkbox' "+(wkCE?"checked":"")+" onchange=\"toggleWeeklyReport('"+ce+"',this.checked)\"> Weekly report</label>";
+    h+="<button style='background:var(--bg);border:1px solid var(--border);color:var(--text2);font-size:9px;padding:2px 6px;border-radius:4px;cursor:pointer' onclick=\"testWeeklyReport('"+ce+"')\">Test</button></div>";}
     h+="</div></div></div>"}
   if(isAdmin)h+="<div style='font-size:9px;color:var(--text2);margin-top:6px'><i class='fa-solid fa-info-circle' style='margin-right:3px'></i>Changes are saved automatically and update who receives weekly reports.</div>";
   el.innerHTML=h;
@@ -834,6 +887,26 @@ function loadMgrAssignments(){
   else{try{var m=JSON.parse(localStorage.getItem("siteMgrs")||"{}");var c=JSON.parse(localStorage.getItem("siteCEs")||"{}");for(var k in m){if(m.hasOwnProperty(k))siteMgrs[k]=m[k]}for(var k2 in c){if(c.hasOwnProperty(k2))siteCEs[k2]=c[k2]}rMgrs()}catch(e){}}
 }
 
+function toggleWeeklyReport(alias,enabled){
+  weeklyReportEnabled[alias]=enabled;
+  if(fbReady)try{fbDb.ref("config/weeklyReportEnabled").set(weeklyReportEnabled)}catch(e){}
+  try{localStorage.setItem("weeklyReportEnabled",JSON.stringify(weeklyReportEnabled))}catch(e){}
+}
+function testWeeklyReport(alias){
+  var sites=[];
+  for(var s in siteMgrs){if(siteMgrs.hasOwnProperty(s)&&siteMgrs[s]===alias&&sites.indexOf(s)===-1)sites.push(s)}
+  for(var s2 in siteCEs){if(siteCEs.hasOwnProperty(s2)&&siteCEs[s2]===alias&&sites.indexOf(s2)===-1)sites.push(s2)}
+  var reports=[];
+  for(var i=0;i<sites.length;i++){var rpt=getWeeklyReport(sites[i]);if(rpt)reports.push(rpt)}
+  if(reports.length===0){alert("No report data available for "+alias+".\nThis could mean no rounds have been recorded yet.");return}
+  var msg=buildWeeklySlackMsg(reports);
+  alert("Weekly Report Preview for "+alias+":\n\n"+msg);
+}
+function loadWeeklyReportEnabled(){
+  if(fbReady){try{fbDb.ref("config/weeklyReportEnabled").once("value",function(snap){var d=snap.val();if(d)weeklyReportEnabled=d;rMgrs()})}catch(e){}}
+  else{try{var d=JSON.parse(localStorage.getItem("weeklyReportEnabled")||"{}");weeklyReportEnabled=d}catch(e){}}
+}
+
 function renderArchSiteSel(){
   var el=document.getElementById("siteSelArch");if(!el)return;var h="";
   var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===archSite?" active":"")+"' onclick=\"setArchSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
@@ -844,13 +917,10 @@ function setArchSite(s){if(!mgrSite){archSite=s}renderArchSiteSel();rArch()}
 function rArch(){
   loadArchive(function(){
     var fe=document.getElementById("archF"),ls=document.getElementById("archList"),st=document.getElementById("archStats");
-    var fh="<button class='fc"+(archFilt==="all"?" act":"")+"' onclick=\"sAF('all')\">All</button><button class='fc"+(archFilt==="ok"?" act":"")+"' onclick=\"sAF('ok')\">OK</button><button class='fc"+(archFilt==="issue"?" act":"")+"' onclick=\"sAF('issue')\">Issues</button>";
+    var fh="<button class='fc"+(archFilt==="all"?" act":"")+"' onclick=\"sAF('all')\">All</button><button class='fc"+(archFilt==="ok"?" act":"")+"' onclick=\"sAF('ok')\">OK</button><button class='fc"+(archFilt==="issue"?" act":"")+"' onclick=\"sAF('issue')\">Issues</button><button class='fc"+(archFilt==="missed"?" act":"")+"' onclick=\"sAF('missed')\"><i class='fa-solid fa-circle-xmark' style='margin-right:2px'></i>Missed</button>";
     fe.innerHTML=fh;
-    var fd=[];
-    for(var i=0;i<archivedRounds.length;i++){
-      var r=archivedRounds[i];if(r.site!==archSite)continue;
-      if(archFilt==="all")fd.push(r);else if(archFilt===r.status)fd.push(r);
-    }
+    if(archFilt==="missed"){rArchMissed(ls,st);return}
+    var fd=[];for(var i=0;i<archivedRounds.length;i++){var r=archivedRounds[i];if(r.site!==archSite)continue;if(archFilt==="all")fd.push(r);else if(archFilt===r.status)fd.push(r)}
     // Stats
     var total=0,issues=0;
     for(var k=0;k<archivedRounds.length;k++){if(archivedRounds[k].site===archSite){total++;if(archivedRounds[k].status==="issue")issues++}}
@@ -879,6 +949,125 @@ function rArch(){
   });
 }
 function sAF(f){archFilt=f;rArch()}
+
+function rArchMissed(ls,st){
+  // Calculate missed rounds from archived data — expected shifts minus completed
+  var areas=siteAreas[archSite];if(!areas){ls.innerHTML="<div class='es'><p>No data</p></div>";return}
+  var enabledAreas=[];for(var i=0;i<areas.length;i++){if(areas[i].enabled)enabledAreas.push(areas[i])}
+  // Get all dates from archived rounds for this site
+  var dateSet={};
+  for(var j=0;j<archivedRounds.length;j++){
+    var r=archivedRounds[j];if(r.site!==archSite)continue;
+    var rd=getRoundDateFromTS(r.ts);dateSet[rd]=true;
+  }
+  var dates=Object.keys(dateSet).sort().reverse();
+  var missedList=[];var totalMissed=0;
+  for(var di=0;di<dates.length;di++){
+    var dt=dates[di];
+    var shifts=["day","night"];
+    for(var si=0;si<shifts.length;si++){
+      for(var ai=0;ai<enabledAreas.length;ai++){
+        var found=false;
+        for(var ri=0;ri<archivedRounds.length;ri++){
+          var ar=archivedRounds[ri];
+          if(ar.site===archSite&&ar.areaId===enabledAreas[ai].id&&ar.shift===shifts[si]&&getRoundDateFromTS(ar.ts)===dt){found=true;break}
+        }
+        if(!found){totalMissed++;missedList.push({date:dt,shift:shifts[si],area:enabledAreas[ai]})}
+      }
+    }
+  }
+  st.innerHTML="<div style='display:flex;gap:8px;margin-bottom:4px'><div class='card' style='flex:1'><div class='card-label'>Missed Rounds</div><div class='card-value' style='color:var(--err);font-size:16px'>"+totalMissed+"</div></div></div>";
+  if(!missedList.length){ls.innerHTML="<div class='es'><p>No missed rounds found in archived data for "+archSite+".</p></div>";return}
+  var h="";for(var mi=0;mi<Math.min(missedList.length,200);mi++){
+    var m=missedList[mi];var shB="<span class='bdg "+m.shift+"'><i class='fa-solid "+(m.shift==="day"?"fa-sun":"fa-moon")+"' style='margin-right:2px'></i>"+(m.shift==="day"?"Day":"Night")+"</span>";
+    h+="<div class='card hi'><div class='dot issue'></div><div class='hi-i'><div class='gn'>"+m.area.id+" \u2014 "+m.area.name+"</div><div class='mt'>Missed \u00b7 "+m.area.group+"</div></div><div class='hi-t'><div>"+m.date+"</div><div>"+shB+"</div><div class='bdg issue' style='margin-top:2px'>MISSED</div></div></div>"
+  }
+  if(missedList.length>200)h+="<div style='font-size:10px;color:var(--muted);text-align:center;padding:8px'>Showing first 200 of "+missedList.length+" missed rounds</div>";
+  ls.innerHTML=h;
+}
+
+// ===== Submitted Issues Page =====
+var issuesSite="ARN60";
+function renderIssuesSiteSel(){
+  var el=document.getElementById("siteSelIssues");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===issuesSite?" active":"")+"' onclick=\"setIssuesSite('"+SITES[i]+"')\">"+SITES[i]+"</button>"}
+  el.innerHTML=h;
+}
+function setIssuesSite(s){issuesSite=s;renderIssuesSiteSel();rIssues()}
+
+function issueTimeAgo(ts){
+  var ms=Date.now()-new Date(ts).getTime();var hrs=ms/3600000;var days=ms/86400000;
+  if(hrs<1)return{text:Math.round(hrs*60)+"m ago",color:"var(--ok)"};
+  if(hrs<48)return{text:Math.round(hrs)+"h ago",color:"var(--ok)"};
+  if(days<7)return{text:Math.round(days)+"d ago",color:"var(--warn)"};
+  return{text:Math.round(days)+"d ago",color:"var(--err)"};
+}
+
+function rIssues(){
+  var el=document.getElementById("issuesList");if(!el)return;
+  var now=Date.now();var tenDays=10*86400000;var oneDay=86400000;
+  var filtered=[];
+  for(var i=0;i<rounds.length;i++){
+    var r=rounds[i];if(r.status!=="issue")continue;
+    if(r.site!==issuesSite)continue;
+    var age=now-new Date(r.ts).getTime();
+    if(age>tenDays)continue;
+    // If marked fixed more than 24h ago, hide it
+    if(r.fixedAt&&(now-new Date(r.fixedAt).getTime())>oneDay)continue;
+    filtered.push(r);
+  }
+  // Sort newest first
+  filtered.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+  if(!filtered.length){el.innerHTML="<div class='es'><p>No active issues for "+issuesSite+" in the last 10 days.</p></div>";return}
+  var h="";
+  for(var j=0;j<filtered.length;j++){
+    var r=filtered[j];var ta=issueTimeAgo(r.ts);
+    var isFixed=!!r.fixedAt;
+    var fixedBadge=isFixed?"<span style='font-size:9px;color:var(--ok);margin-left:6px'><i class='fa-solid fa-circle-check'></i> Fixed</span>":"";
+    h+="<div class='card' style='padding:10px'>";
+    h+="<div style='display:flex;align-items:center;gap:8px;margin-bottom:4px'>";
+    h+="<div style='font-size:14px;color:var(--err)'><i class='fa-solid fa-triangle-exclamation'></i></div>";
+    h+="<div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+r.areaId+" \u2014 "+r.areaName+"</div>";
+    h+="<div style='font-size:10px;color:var(--muted)'>"+r.alias+" \u00b7 "+r.group+"</div></div>";
+    h+="<div style='text-align:right'><div style='font-size:10px;font-weight:600;color:"+ta.color+"'>"+ta.text+"</div>";
+    h+="<div style='font-size:9px;color:var(--muted)'>"+new Date(r.ts).toLocaleDateString()+"</div></div></div>";
+    if(r.notes)h+="<div style='font-size:11px;color:var(--text2);margin:4px 0 6px;padding:4px 6px;background:var(--bg);border-radius:var(--rs)'>"+r.notes+"</div>";
+    h+="<div style='display:flex;align-items:center;gap:6px'>";
+    h+="<label style='font-size:10px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer'><input type='checkbox' "+(isFixed?"checked disabled":"")+" onchange=\"markFixed('"+r.id+"','"+r.site+"',this.checked)\"> "+(isFixed?"Resolved":"Mark as fixed")+"</label>";
+    h+=fixedBadge;
+    h+="</div></div>";
+  }
+  el.innerHTML=h;
+}
+
+function markFixed(roundId,site,checked){
+  // Update local rounds array
+  for(var i=0;i<rounds.length;i++){
+    if(rounds[i].id===roundId){
+      rounds[i].fixedAt=checked?new Date().toISOString():null;
+      break;
+    }
+  }
+  // Save to Firebase
+  if(fbReady){try{fbDb.ref("rounds/"+site+"/"+roundId+"/fixedAt").set(checked?new Date().toISOString():null)}catch(e){}}
+  rIssues();
+}
+
+function downloadIssues(){
+  var now=Date.now();var tenDays=10*86400000;var oneDay=86400000;
+  var rows=["Site,Checkpoint,Area,Notes,Submitted By,Submitted At,Status"];
+  for(var i=0;i<rounds.length;i++){
+    var r=rounds[i];if(r.status!=="issue")continue;if(r.site!==issuesSite)continue;
+    var age=now-new Date(r.ts).getTime();if(age>tenDays)continue;
+    if(r.fixedAt&&(now-new Date(r.fixedAt).getTime())>oneDay)continue;
+    var fixed=r.fixedAt?"Fixed":"Open";
+    rows.push([r.site,r.areaId,r.areaName,'"'+(r.notes||"").replace(/"/g,'""')+'"',r.alias,new Date(r.ts).toLocaleString(),fixed].join(","));
+  }
+  var csv=rows.join("\n");
+  var blob=new Blob([csv],{type:"text/csv"});
+  var a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download="issues-"+issuesSite+"-"+new Date().toISOString().split("T")[0]+".csv";
+  document.body.appendChild(a);a.click();document.body.removeChild(a);
+}
 
 // ===== DCEO Status Page =====
 function renderStatusSiteSel(){
@@ -1250,6 +1439,9 @@ checkQRParams();
           fbDb=firebase.database();
           fbReady=true;
           try{loadMgrAssignments()}catch(e){}
+          try{loadWeeklyReportEnabled()}catch(e){}
+          // Check pending issue reminders (3-day follow-up)
+          setTimeout(function(){try{checkIssueReminders()}catch(e){}},3000);
           // Load alert config from Firebase (Slack IDs, bot token, etc.)
           try{fbDb.ref("config/alertConfig").once("value",function(snap){var d=snap.val();if(d){alertConfig=d;loadAlertConfig()}})}catch(e){}
           // Sync with Firebase - listen for real-time updates
