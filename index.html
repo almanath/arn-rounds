@@ -141,7 +141,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 <div class="page" id="page-form">
   <button class="bk" onclick="sp('scan')"><i class="fa-solid fa-arrow-left"></i> Back</button>
   <div class="fh"><div class="badge-g" id="fB">HS</div><div><div style="font-weight:600;font-size:14px" id="fN">House Supply</div><div style="font-size:10px;color:var(--muted)" id="fS">ARN60</div></div></div>
-  <div class="fr"><label>Operator (your alias)</label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"></div>
+  <div class="fr" id="aliasRow" style="display:none"><label>Your alias <span style="color:var(--err)">*</span></label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"><div style="font-size:9px;color:var(--text2);margin-top:2px">Required for issue follow-up — you'll get a Slack DM reminder</div></div>
   <div class="fr"><label>Shift</label><div id="fShift"></div></div>
   <div class="fr"><label>Status</label><div class="sb">
     <button class="s-btn ok" onclick="ss('ok')" id="bO"><i class="fa-solid fa-circle-check"></i> All OK</button>
@@ -513,19 +513,19 @@ function rgg(){
 }
 
 function oForm(id){
-  var a=findA(id);if(!a||!a.enabled)return;curGen=a;curSt=null;
+  var a=findA(id);if(!a||!a.enabled)return;curGen=a;curSt="ok";
   document.getElementById("fB").textContent=a.id;document.getElementById("fN").textContent=a.name;document.getElementById("fS").textContent=curSite;
   var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
   document.getElementById("fA").value=curUser?curUser.alias:savedAlias;
   var shift=getShift();document.getElementById("fShift").innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+shiftIcon(shift)+"'></i> "+shiftLabel(shift)+"</div>";
   document.getElementById("fNo").value="";document.getElementById("nR").style.display="none";
-  document.getElementById("bO").className="s-btn ok";document.getElementById("bI").className="s-btn issue";document.getElementById("sB").disabled=false;sp("form");
+  document.getElementById("bO").className="s-btn ok sel";document.getElementById("bI").className="s-btn issue";document.getElementById("aliasRow").style.display="none";document.getElementById("sB").disabled=false;sp("form");
 }
-function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");document.getElementById("nR").style.display=s==="issue"?"block":"none"}
+function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");document.getElementById("nR").style.display=s==="issue"?"block":"none";document.getElementById("aliasRow").style.display=s==="issue"?"block":"none"}
 function doSubmit(){
-  var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
-  if(!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
   if(!curSt){alert("Select a status.");return}if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
+  var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
+  if(curSt==="issue"&&!aliasVal){alert("Enter your alias so we can send you a follow-up reminder.");document.getElementById("fA").focus();return}
   // Remember alias for next time
   try{localStorage.setItem("roundsAlias",aliasVal)}catch(e){}
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
