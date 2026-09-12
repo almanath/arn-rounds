@@ -631,6 +631,100 @@ function scheduleIssueReminder(areaId,site,notes,submitterAlias){
 // Load config on startup
 try{loadAlertConfig()}catch(e){}
 
+// ===== Weekly Report via Slack DM =====
+function getWeeklyReport(site){
+  var now=new Date();var dow=now.getDay();var mondayOffset=(dow===0?6:dow-1);
+  var weekStart=new Date(now.getFullYear(),now.getMonth(),now.getDate()-mondayOffset-7,7,0,0);
+  var weekEnd=new Date(weekStart.getTime()+7*86400000);
+  var areas=siteAreas[site];if(!areas)return null;
+  var enabledAreas=0;for(var i=0;i<areas.length;i++){if(areas[i].enabled)enabledAreas++}
+  if(enabledAreas===0)return null;
+  // Count shifts in the week
+  var shiftsToCheck=[];
+  for(var d=0;d<7;d++){
+    var dayDate=new Date(weekStart.getTime()+d*86400000);
+    var dateStr=dayDate.getFullYear()+"-"+(dayDate.getMonth()<9?"0":"")+(dayDate.getMonth()+1)+"-"+(dayDate.getDate()<10?"0":"")+dayDate.getDate();
+    shiftsToCheck.push({date:dateStr,shift:"day"});
+    shiftsToCheck.push({date:dateStr,shift:"night"});
+  }
+  var totalExpected=shiftsToCheck.length*enabledAreas;
+  var done=0;var issues=0;var issueList=[];
+  for(var si=0;si<shiftsToCheck.length;si++){
+    var sc=shiftsToCheck[si];
+    for(var ai=0;ai<areas.length;ai++){
+      if(!areas[ai].enabled)continue;
+      for(var ri=0;ri<rounds.length;ri++){
+        var r=rounds[ri];
+        if(r.site===site&&r.areaId===areas[ai].id&&r.shift===sc.shift&&getRoundDateFromTS(r.ts)===sc.date){
+          done++;
+          if(r.status==="issue"){issues++;issueList.push({area:r.areaId,notes:r.notes||"",date:sc.date,shift:sc.shift,alias:r.alias||""})}
+          break;
+        }
+      }
+    }
+  }
+  var missed=totalExpected-done;
+  var pct=totalExpected>0?Math.round(done/totalExpected*100):0;
+  var wkLabel=weekStart.toLocaleDateString("en-GB",{day:"numeric",month:"short"})+" – "+new Date(weekEnd.getTime()-86400000).toLocaleDateString("en-GB",{day:"numeric",month:"short"});
+  return {site:site,weekLabel:wkLabel,total:totalExpected,done:done,missed:missed,issues:issues,issueList:issueList,pct:pct};
+}
+
+function buildWeeklySlackMsg(reports){
+  var msg=":bar_chart: *Weekly Rounds Report* ("+reports[0].weekLabel+")\n\n";
+  for(var i=0;i<reports.length;i++){
+    var r=reports[i];
+    var statusIcon=r.missed>0||r.issues>0?":warning:":":white_check_mark:";
+    msg+=statusIcon+" *"+r.site+"*: "+r.done+"/"+r.total+" completed ("+r.pct+"%)";
+    if(r.missed>0)msg+=" — *"+r.missed+" missed*";
+    if(r.issues>0)msg+=" — *"+r.issues+" issue"+(r.issues>1?"s":"")+"*";
+    msg+="\n";
+    if(r.issueList.length>0){
+      for(var j=0;j<r.issueList.length;j++){
+        var iss=r.issueList[j];
+        msg+="    • "+iss.area+" ("+iss.date+" "+iss.shift+")"+(iss.notes?" — "+iss.notes.substring(0,80):"")+"\n";
+      }
+    }
+  }
+  return msg;
+}
+
+function sendWeeklyReports(){
+  if(!alertConfig.slackBotToken)return;
+  // Check if already sent this week
+  var now=new Date();var dow=now.getDay();var mondayOffset=(dow===0?6:dow-1);
+  var thisMonday=new Date(now.getFullYear(),now.getMonth(),now.getDate()-mondayOffset).toDateString();
+  var lastSent="";try{lastSent=localStorage.getItem("weeklyReportSent")||""}catch(e){}
+  if(lastSent===thisMonday){console.log("[Weekly] Already sent this week");return}
+  // Only send on Monday (dow=1) or if manager opens app later in the week and it hasn't been sent
+  // Build per-alias report: group sites by manager/chief alias
+  var aliasToSites={};
+  for(var s in siteMgrs){if(siteMgrs.hasOwnProperty(s)){var a=siteMgrs[s];if(!aliasToSites[a])aliasToSites[a]=[];if(aliasToSites[a].indexOf(s)===-1)aliasToSites[a].push(s)}}
+  for(var s2 in siteCEs){if(siteCEs.hasOwnProperty(s2)){var a2=siteCEs[s2];if(!aliasToSites[a2])aliasToSites[a2]=[];if(aliasToSites[a2].indexOf(s2)===-1)aliasToSites[a2].push(s2)}}
+  // Send a DM to each alias with their sites' reports
+  for(var alias in aliasToSites){
+    if(!aliasToSites.hasOwnProperty(alias))continue;
+    var sites=aliasToSites[alias];
+    var reports=[];
+    for(var si=0;si<sites.length;si++){
+      var rpt=getWeeklyReport(sites[si]);
+      if(rpt&&(rpt.missed>0||rpt.issues>0))reports.push(rpt);
+    }
+    if(reports.length>0){
+      var msg=buildWeeklySlackMsg(reports);
+      slackDM(alias,msg);
+      console.log("[Weekly] Report sent to "+alias+" for "+sites.join(", "));
+    }
+  }
+  try{localStorage.setItem("weeklyReportSent",thisMonday)}catch(e){}
+}
+
+// Auto-check weekly report when manager logs in
+var _origShowMgrUI=showMgrUI;
+showMgrUI=function(){
+  _origShowMgrUI();
+  setTimeout(function(){try{sendWeeklyReports()}catch(e){console.warn("[Weekly] Error:",e)}},2000);
+};
+
 function uStats(){
   var td=new Date().toDateString(),tc=0,ic=0;
   for(var i=0;i<rounds.length;i++){var r=rounds[i];if(r.site!==curSite)continue;if(curUser&&curUser.role==="dceo"&&r.alias!==curUser.alias)continue;
