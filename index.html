@@ -141,7 +141,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 <div class="page" id="page-form">
   <button class="bk" onclick="sp('scan')"><i class="fa-solid fa-arrow-left"></i> Back</button>
   <div class="fh"><div class="badge-g" id="fB">HS</div><div><div style="font-weight:600;font-size:14px" id="fN">House Supply</div><div style="font-size:10px;color:var(--muted)" id="fS">ARN60</div></div></div>
-  <div class="fr"><label>Operator</label><div class="val" id="fA"></div></div>
+  <div class="fr"><label>Operator (your alias)</label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"></div>
   <div class="fr"><label>Shift</label><div id="fShift"></div></div>
   <div class="fr"><label>Status</label><div class="sb">
     <button class="s-btn ok" onclick="ss('ok')" id="bO"><i class="fa-solid fa-circle-check"></i> All OK</button>
@@ -210,8 +210,37 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   </div>
   <div class="card">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-bell" style="color:var(--pri);margin-right:3px"></i> Issue Alerts</div>
-    <div class="sr"><div style="font-size:12px">Email + Slack</div><div style="font-size:11px;color:var(--ok)"><i class="fa-solid fa-circle-check"></i> On</div></div>
-    <div style="font-size:10px;color:var(--text2);margin-top:4px">Sent to: submitter only (as a follow-up reminder)</div>
+    <div style="font-size:10px;color:var(--text2);margin-bottom:8px">When an issue is submitted, a notification is sent to the submitter as a follow-up reminder.</div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em"><i class="fa-brands fa-slack" style="margin-right:3px"></i>Slack Bot Token</label>
+      <input type="text" class="sx" id="slackBotTokenInput" placeholder="xoxb-..." style="margin-bottom:2px" oninput="saveAlertConfig()">
+      <div style="font-size:9px;color:var(--text2)">Create a Slack App at <a href="https://api.slack.com/apps" target="_blank" style="color:var(--pri)">api.slack.com/apps</a> with <code>chat:write</code> and <code>users:lookupByEmail</code> scopes. Install to workspace, then copy the Bot User OAuth Token.</div>
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Email domain</label>
+      <input type="text" class="sx" id="slackEmailDomainInput" placeholder="amazon.com" style="margin-bottom:2px" oninput="saveAlertConfig()">
+      <div style="font-size:9px;color:var(--text2)">Appended to the submitter's alias to look up their Slack account (e.g. alias@amazon.com)</div>
+    </div>
+    <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em"><i class="fa-solid fa-envelope" style="margin-right:3px"></i>EmailJS Service ID</label>
+      <input type="text" class="sx" id="emailjsServiceInput" placeholder="service_xxxxxxx" style="margin-bottom:2px" oninput="saveAlertConfig()">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">EmailJS Template ID</label>
+      <input type="text" class="sx" id="emailjsTemplateInput" placeholder="template_xxxxxxx" style="margin-bottom:2px" oninput="saveAlertConfig()">
+    </div>
+    <div style="margin-bottom:8px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">EmailJS Public Key</label>
+      <input type="text" class="sx" id="emailjsKeyInput" placeholder="your_public_key" style="margin-bottom:2px" oninput="saveAlertConfig()">
+      <div style="font-size:9px;color:var(--text2)">Sign up free at <a href="https://www.emailjs.com/" target="_blank" style="color:var(--pri)">emailjs.com</a> (200 emails/month)</div>
+    </div>
+    <div style="margin-bottom:4px">
+      <label style="font-size:9px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em">Submitter Email (default)</label>
+      <input type="email" class="sx" id="alertEmailInput" placeholder="you@amazon.com" style="margin-bottom:2px" oninput="saveAlertConfig()">
+      <div style="font-size:9px;color:var(--text2)">Email address where issue reminders are sent</div>
+    </div>
+    <div id="alertStatus" style="font-size:10px;margin-top:6px"></div>
   </div>
   <div class="card" id="proxyCard">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-user-clock" style="color:var(--pri);margin-right:3px"></i> Proxy Delegation</div>
@@ -447,7 +476,7 @@ function doLogout(){doMgrLogout()}
 
 
 function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h='';var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setSite('"+vs[i]+"')\">"+vs[i]+"</button>"}el.innerHTML=h}
-function setSite(s){curSite=s;renderAll()}
+function setSite(s){if(!mgrSite){curSite=s}renderAll()}
 function renderAll(){
   renderStatusSiteSel();renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
   rStatus();rgg();uStats();rMgrs();
@@ -486,23 +515,121 @@ function rgg(){
 function oForm(id){
   var a=findA(id);if(!a||!a.enabled)return;curGen=a;curSt=null;
   document.getElementById("fB").textContent=a.id;document.getElementById("fN").textContent=a.name;document.getElementById("fS").textContent=curSite;
-  document.getElementById("fA").textContent=curUser?curUser.alias:"";
+  var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  document.getElementById("fA").value=curUser?curUser.alias:savedAlias;
   var shift=getShift();document.getElementById("fShift").innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+shiftIcon(shift)+"'></i> "+shiftLabel(shift)+"</div>";
   document.getElementById("fNo").value="";document.getElementById("nR").style.display="none";
   document.getElementById("bO").className="s-btn ok";document.getElementById("bI").className="s-btn issue";document.getElementById("sB").disabled=false;sp("form");
 }
 function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");document.getElementById("nR").style.display=s==="issue"?"block":"none"}
 function doSubmit(){
+  var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
+  if(!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
   if(!curSt){alert("Select a status.");return}if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
+  // Remember alias for next time
+  try{localStorage.setItem("roundsAlias",aliasVal)}catch(e){}
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
-  var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:"dceo",ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes};
+  var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:aliasVal,ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes};
   saveRound(newRound);
   document.getElementById("sB").disabled=true;var ov=document.getElementById("sO");ov.classList.add("show");
   if(curSt==="issue"){
-    var ne=document.getElementById("notif");document.getElementById("notifMsg").innerHTML="<b>"+curGen.id+"</b> @ "+curSite+": "+notes.substring(0,60)+"<br><span style='font-size:9px;color:var(--muted)'>Email+Slack \u2192 "+(curUser?curUser.name:"submitter")+"</span>";
-    ne.classList.add("show");setTimeout(function(){ne.classList.remove("show")},4500)}
-  setTimeout(function(){ov.classList.remove("show");sp("scan")},1400);
+    var hasSlack=!!alertConfig.slackBotToken;var hasEmail=alertConfig.emailjsService&&alertConfig.emailjsTemplate&&alertConfig.emailjsKey;
+    var alertCh=(hasSlack&&hasEmail)?"Slack DM + Email sent":(hasSlack?"Slack DM sent":(hasEmail?"Email sent":"No alert channels configured"));
+    var ne=document.getElementById("notif");document.getElementById("notifMsg").innerHTML="<b>"+curGen.id+"</b> @ "+curSite+": "+notes.substring(0,60)+"<br><span style='font-size:9px;color:var(--muted)'>\u2192 "+alertCh+"</span>";
+    ne.classList.add("show");setTimeout(function(){ne.classList.remove("show")},4500);
+    scheduleIssueReminder(curGen.id,curSite,notes,aliasVal);
+  }
+  setTimeout(function(){ov.classList.remove("show");sp("status")},1400);
 }
+
+// ===== Issue Alert Config (Slack + Email) =====
+var alertConfig={slackBotToken:"",slackEmailDomain:"amazon.com",emailjsService:"",emailjsTemplate:"",emailjsKey:"",alertEmail:""};
+function loadAlertConfig(){
+  try{var c=JSON.parse(localStorage.getItem("alertConfig")||"{}");
+    if(c.slackBotToken)alertConfig.slackBotToken=c.slackBotToken;
+    if(c.slackEmailDomain)alertConfig.slackEmailDomain=c.slackEmailDomain;
+    if(c.emailjsService)alertConfig.emailjsService=c.emailjsService;
+    if(c.emailjsTemplate)alertConfig.emailjsTemplate=c.emailjsTemplate;
+    if(c.emailjsKey)alertConfig.emailjsKey=c.emailjsKey;
+    if(c.alertEmail)alertConfig.alertEmail=c.alertEmail;
+  }catch(e){}
+  // Populate inputs if they exist
+  var f=document.getElementById("slackBotTokenInput");if(f)f.value=alertConfig.slackBotToken;
+  f=document.getElementById("slackEmailDomainInput");if(f)f.value=alertConfig.slackEmailDomain;
+  f=document.getElementById("emailjsServiceInput");if(f)f.value=alertConfig.emailjsService;
+  f=document.getElementById("emailjsTemplateInput");if(f)f.value=alertConfig.emailjsTemplate;
+  f=document.getElementById("emailjsKeyInput");if(f)f.value=alertConfig.emailjsKey;
+  f=document.getElementById("alertEmailInput");if(f)f.value=alertConfig.alertEmail;
+  updateAlertStatus();
+}
+function saveAlertConfig(){
+  alertConfig.slackBotToken=(document.getElementById("slackBotTokenInput")||{}).value||"";
+  alertConfig.slackEmailDomain=(document.getElementById("slackEmailDomainInput")||{}).value||"amazon.com";
+  alertConfig.emailjsService=(document.getElementById("emailjsServiceInput")||{}).value||"";
+  alertConfig.emailjsTemplate=(document.getElementById("emailjsTemplateInput")||{}).value||"";
+  alertConfig.emailjsKey=(document.getElementById("emailjsKeyInput")||{}).value||"";
+  alertConfig.alertEmail=(document.getElementById("alertEmailInput")||{}).value||"";
+  try{localStorage.setItem("alertConfig",JSON.stringify(alertConfig))}catch(e){}
+  updateAlertStatus();
+}
+function updateAlertStatus(){
+  var el=document.getElementById("alertStatus");if(!el)return;
+  var hasSlack=!!alertConfig.slackBotToken;var hasEmail=alertConfig.emailjsService&&alertConfig.emailjsTemplate&&alertConfig.emailjsKey&&alertConfig.alertEmail;
+  if(hasSlack&&hasEmail){el.innerHTML="<span style='color:var(--ok)'><i class='fa-solid fa-circle-check'></i> Slack + Email configured</span>"}
+  else if(hasSlack){el.innerHTML="<span style='color:var(--ok)'><i class='fa-solid fa-circle-check'></i> Slack Bot configured</span> <span style='color:var(--muted)'>\u00b7 Email not set</span>"}
+  else if(hasEmail){el.innerHTML="<span style='color:var(--ok)'><i class='fa-solid fa-circle-check'></i> Email configured</span> <span style='color:var(--muted)'>\u00b7 Slack not set</span>"}
+  else{el.innerHTML="<span style='color:var(--warn)'><i class='fa-solid fa-triangle-exclamation'></i> No alerts configured</span>"}
+}
+
+// Slack Bot: look up user by email, then DM them
+function slackDM(alias,text){
+  if(!alertConfig.slackBotToken)return;
+  var email=alias+"@"+alertConfig.slackEmailDomain;
+  var token=alertConfig.slackBotToken;
+  // Step 1: look up Slack user ID by email
+  fetch("https://slack.com/api/users.lookupByEmail?email="+encodeURIComponent(email),{headers:{"Authorization":"Bearer "+token}})
+    .then(function(r){return r.json()})
+    .then(function(data){
+      if(!data.ok){console.warn("[Slack] lookupByEmail failed:",data.error);return}
+      var userId=data.user.id;
+      // Step 2: open a DM conversation
+      return fetch("https://slack.com/api/conversations.open",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({users:userId})})
+        .then(function(r){return r.json()})
+        .then(function(conv){
+          if(!conv.ok){console.warn("[Slack] conversations.open failed:",conv.error);return}
+          // Step 3: send the DM
+          return fetch("https://slack.com/api/chat.postMessage",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({channel:conv.channel.id,text:text,unfurl_links:false})})
+            .then(function(r){return r.json()})
+            .then(function(msg){if(msg.ok)console.log("[Slack] DM sent to "+alias);else console.warn("[Slack] postMessage failed:",msg.error)});
+        });
+    })
+    .catch(function(e){console.warn("[Slack] DM error:",e)});
+}
+
+// Send issue alert via Slack DM and/or Email
+function scheduleIssueReminder(areaId,site,notes,submitterAlias){
+  var msg="\u26a0\ufe0f *Issue reported: "+areaId+" @ "+site+"*\n"+notes+"\n_Submitted "+new Date().toLocaleString()+"_\n\nPlease follow up on this issue.";
+  // Slack DM to submitter
+  if(alertConfig.slackBotToken&&submitterAlias){
+    try{
+      slackDM(submitterAlias,msg);
+    }catch(e){console.warn("[Alert] Slack failed:",e)}
+  }
+  // EmailJS
+  var toEmail=alertConfig.alertEmail;
+  if(submitterAlias&&alertConfig.slackEmailDomain)toEmail=submitterAlias+"@"+alertConfig.slackEmailDomain;
+  if(alertConfig.emailjsService&&alertConfig.emailjsTemplate&&alertConfig.emailjsKey&&toEmail){
+    var emailData={service_id:alertConfig.emailjsService,template_id:alertConfig.emailjsTemplate,user_id:alertConfig.emailjsKey,
+      template_params:{to_email:toEmail,subject:"Follow up: Issue at "+areaId+" @ "+site,message:"You reported an issue during your round.\n\nCheckpoint: "+areaId+"\nSite: "+site+"\nNotes: "+notes+"\nTime: "+new Date().toLocaleString()+"\n\nPlease follow up on this issue.",area_id:areaId,site:site,notes:notes}};
+    try{
+      fetch("https://api.emailjs.com/api/v1.0/email/send",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(emailData)})
+        .then(function(r){console.log("[Alert] Email sent, status:",r.status)})
+        .catch(function(e){console.warn("[Alert] Email failed:",e)});
+    }catch(e){console.warn("[Alert] Email error:",e)}
+  }
+}
+// Load config on startup
+try{loadAlertConfig()}catch(e){}
 
 function uStats(){
   var td=new Date().toDateString(),tc=0,ic=0;
@@ -572,7 +699,7 @@ function renderArchSiteSel(){
   var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===archSite?" active":"")+"' onclick=\"setArchSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
-function setArchSite(s){archSite=s;renderArchSiteSel();rArch()}
+function setArchSite(s){if(!mgrSite){archSite=s}renderArchSiteSel();rArch()}
 
 function rArch(){
   loadArchive(function(){
@@ -619,7 +746,7 @@ function renderStatusSiteSel(){
   var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setSiteSt('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
-function setSiteSt(s){curSite=s;renderStatusSiteSel();rStatus()}
+function setSiteSt(s){if(!mgrSite){curSite=s}renderStatusSiteSel();rStatus()}
 
 function rStatus(){
   var shift=getShift();var today=getRoundDate();
@@ -730,7 +857,7 @@ function renderOverSiteSel(){
   for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setOverSite('"+vs[i]+"')\">"+vs[i]+"</button>"}
   el.innerHTML=h;
 }
-function setOverSite(s){curSite=s;renderOverSiteSel();rOverview()}
+function setOverSite(s){if(!mgrSite){curSite=s}renderOverSiteSel();rOverview()}
 
 function rOverview(){
   var site=mgrSite||curSite;
