@@ -900,7 +900,8 @@ function testWeeklyReport(alias){
   for(var i=0;i<sites.length;i++){var rpt=getWeeklyReport(sites[i]);if(rpt)reports.push(rpt)}
   if(reports.length===0){alert("No report data available for "+alias+".\nThis could mean no rounds have been recorded yet.");return}
   var msg=buildWeeklySlackMsg(reports);
-  alert("Weekly Report Preview for "+alias+":\n\n"+msg);
+  slackDM(alias,msg);
+  alert("Weekly report sent to "+alias+" via Slack DM.\n\nSites: "+sites.join(", "));
 }
 function loadWeeklyReportEnabled(){
   if(fbReady){try{fbDb.ref("config/weeklyReportEnabled").once("value",function(snap){var d=snap.val();if(d)weeklyReportEnabled=d;rMgrs()})}catch(e){}}
