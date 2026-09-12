@@ -1105,7 +1105,7 @@ function loadProxies(){
         h+="<div style='flex:1'><div style='font-size:11px;font-weight:600'>"+p.name+" <span style='color:var(--muted);font-weight:400'>("+p.alias+")</span></div>";
         h+="<div style='font-size:9px;color:var(--text2)'>"+p.site+" \u00b7 "+p.start+" to "+p.end+"</div></div>";
         h+="<div style='font-size:10px;color:var(--pri);font-family:var(--fm)'>PIN: "+p.pin+"</div>";
-        h+="<button style='background:none;border:none;color:var(--err);font-size:12px;cursor:pointer;padding:4px' onclick=\"revokeProxy('"+key+"')\"><i class='fa-solid fa-xmark'></i></button>";
+        h+="<button style='background:var(--err-bg);border:1px solid var(--err);color:var(--err);font-size:10px;cursor:pointer;padding:5px 10px;border-radius:var(--rs);font-weight:600;font-family:inherit;margin-left:6px' onclick=\"revokeProxy('"+key+"')\"><i class='fa-solid fa-trash-can' style='margin-right:3px'></i>Remove</button>";
         h+="</div>";
       }
     }
