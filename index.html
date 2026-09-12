@@ -107,7 +107,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <div class="login-box" style="max-width:320px">
     <div class="aea"><i class="fa-solid fa-shield-halved"></i> Manager Access</div>
     <p style="font-size:11px;color:var(--text2);margin-bottom:12px;text-align:left">Enter your site PIN to access the management view.</p>
-    <input type="password" id="mgrPIN" placeholder="4-digit PIN" maxlength="4" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:18px;font-family:var(--fm);text-align:center;letter-spacing:8px" oninput="checkMgrPIN()">
+    <input type="password" id="mgrPIN" placeholder="4-digit PIN" maxlength="4" style="width:100%;padding:10px;background:var(--bg);border:1px solid var(--border);border-radius:var(--rs);color:var(--text);font-size:18px;font-family:var(--fm);text-align:center;letter-spacing:8px" oninput="checkMgrPIN()" onkeydown="if(event.key==='Enter'&&!document.getElementById('mgrLoginBtn').disabled)doMgrLogin()">
     <div class="err-msg" id="mgrErr">Invalid PIN</div>
     <button class="sub-btn" id="mgrLoginBtn" onclick="doMgrLogin()" disabled><i class="fa-solid fa-right-to-bracket"></i> Sign In</button>
     <button style="width:100%;padding:8px;background:none;border:1px solid var(--border);border-radius:var(--rs);color:var(--text2);font-size:12px;margin-top:6px;cursor:pointer" onclick="closeMgrLogin()">Cancel</button>
