@@ -617,23 +617,19 @@ function updateAlertStatus(){
   else{el.innerHTML="<span style='color:var(--warn)'><i class='fa-solid fa-triangle-exclamation'></i> No alerts configured</span>"}
 }
 
-// Slack Bot: DM user by their Slack Member ID
+// Slack DM via Firebase relay (avoids browser CORS/Safari issues)
 function slackDM(alias,text){
-  if(!alertConfig.slackBotToken){alert("[Slack] No bot token configured");return}
-  var userId=alertConfig.slackIds[alias];
-  if(!userId){alert("[Slack] No Slack Member ID found for alias: "+alias+"\nGo to Settings → Slack Member IDs to add it.");return}
-  var token=alertConfig.slackBotToken;
-  // Step 1: open a DM conversation
-  fetch("https://slack.com/api/conversations.open",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({users:userId})})
-    .then(function(r){return r.json()})
-    .then(function(conv){
-      if(!conv.ok){alert("[Slack] Failed to open DM: "+conv.error);return}
-      // Step 2: send the DM
-      return fetch("https://slack.com/api/chat.postMessage",{method:"POST",headers:{"Authorization":"Bearer "+token,"Content-Type":"application/json"},body:JSON.stringify({channel:conv.channel.id,text:text,unfurl_links:false})})
-        .then(function(r){return r.json()})
-        .then(function(msg){if(msg.ok){alert("[Slack] DM sent to "+alias+" ✓")}else{alert("[Slack] Send failed: "+msg.error)}});
-    })
-    .catch(function(e){alert("[Slack] Error: "+e.message)});
+  if(!alertConfig.slackBotToken){console.warn("[Slack] No bot token configured");return}
+  var ids=alertConfig.slackIds||{};
+  var userId=ids[alias];
+  if(!userId){console.warn("[Slack] No Slack ID for alias:",alias);return}
+  if(!fbReady){console.warn("[Slack] Firebase not ready, can't queue DM");return}
+  // Write to Firebase queue — Cloud Function picks it up and sends the DM
+  var entry={token:alertConfig.slackBotToken,userId:userId,alias:alias,text:text,status:"pending",ts:new Date().toISOString()};
+  try{
+    fbDb.ref("slackQueue").push(entry);
+    console.log("[Slack] DM queued for "+alias);
+  }catch(e){console.warn("[Slack] Queue error:",e)}
 }
 
 // Send issue alert via Slack DM and/or Email
