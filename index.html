@@ -400,7 +400,7 @@ var AREAS_5X=[
 {id:"1A",name:"Gen 1A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"1B",name:"Gen 1B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
 {id:"2A",name:"Gen 2A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"2B",name:"Gen 2B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
 {id:"4A",name:"Gen 4A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"4B",name:"Gen 4B",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"4C",name:"Gen 4C",group:"Generator Yard",icon:"fa-bolt",enabled:true},
-{id:"5A",name:"Gen 5A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"5B",name:"Gen 5B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
+{id:"5A",name:"Gen 5A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"5B",name:"Gen 5B",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"5C",name:"Gen 5C",group:"Generator Yard",icon:"fa-bolt",enabled:true},
 {id:"6A",name:"Gen 6A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"6B",name:"Gen 6B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
 {id:"7A",name:"Gen 7A",group:"Generator Yard",icon:"fa-bolt",enabled:true},{id:"7B",name:"Gen 7B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
 {id:"8B",name:"Gen 8B",group:"Generator Yard",icon:"fa-bolt",enabled:true},
@@ -772,6 +772,7 @@ function buildWeeklySlackMsg(reports){
       }
     }
   }
+  msg+="\n:link: <https://almanath.github.io/arn-rounds/|Open Rounds Tracker>";
   return msg;
 }
 
@@ -1035,80 +1036,83 @@ function rCalendar(){
   var enabledAreas=[];for(var i=0;i<areas.length;i++){if(areas[i].enabled)enabledAreas.push(areas[i])}
   var totalCheckpoints=enabledAreas.length;
 
-  // Build header
-  var h="<table style='width:100%;border-collapse:collapse;font-size:11px'>";
-  h+="<thead><tr><th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Date</th>";
-  h+="<th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Day Shift</th>";
-  h+="<th style='padding:6px 2px;color:var(--muted);font-size:10px;font-weight:600'>Night Shift</th></tr></thead><tbody>";
-
+  // Calendar grid layout (Su Mo Tu We Th Fr Sa)
   var daysInMonth=new Date(calYear,calMonth+1,0).getDate();
+  var firstDay=new Date(calYear,calMonth,1).getDay(); // 0=Sun
   var today=new Date();var todayStr=today.getFullYear()+"-"+(today.getMonth()<9?"0":"")+(today.getMonth()+1)+"-"+(today.getDate()<10?"0":"")+today.getDate();
-  var dayNames=["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  var dayHeaders=["Su","Mo","Tu","We","Th","Fr","Sa"];
 
+  var h="<div style='display:grid;grid-template-columns:repeat(7,1fr);gap:3px;text-align:center'>";
+  // Header row
+  for(var hd=0;hd<7;hd++){h+="<div style='font-size:10px;font-weight:600;color:var(--muted);padding:6px 0'>"+dayHeaders[hd]+"</div>"}
+  // Empty cells before first day
+  for(var e=0;e<firstDay;e++){h+="<div></div>"}
+  // Day cells
   for(var d=1;d<=daysInMonth;d++){
-    var dt=new Date(calYear,calMonth,d);
     var dateStr=calYear+"-"+(calMonth<9?"0":"")+(calMonth+1)+"-"+(d<10?"0":"")+d;
-    var dayName=dayNames[dt.getDay()];
     var isFuture=dateStr>todayStr;
+    var isToday=dateStr===todayStr;
 
     // Count completed rounds for each shift
     var dayDone=0;var nightDone=0;
-    for(var ai=0;ai<enabledAreas.length;ai++){
-      var dayFound=false;var nightFound=false;
-      for(var ri=0;ri<rounds.length;ri++){
-        var r=rounds[ri];
-        if(r.site===calSite&&r.areaId===enabledAreas[ai].id&&getRoundDateFromTS(r.ts)===dateStr){
-          if(r.shift==="day")dayFound=true;
-          if(r.shift==="night")nightFound=true;
+    if(!isFuture){
+      for(var ai=0;ai<enabledAreas.length;ai++){
+        var dayFound=false;var nightFound=false;
+        for(var ri=0;ri<rounds.length;ri++){
+          var r=rounds[ri];
+          if(r.site===calSite&&r.areaId===enabledAreas[ai].id&&getRoundDateFromTS(r.ts)===dateStr){
+            if(r.shift==="day")dayFound=true;
+            if(r.shift==="night")nightFound=true;
+          }
         }
+        if(dayFound)dayDone++;
+        if(nightFound)nightDone++;
       }
-      if(dayFound)dayDone++;
-      if(nightFound)nightDone++;
     }
-
     var dayMissed=totalCheckpoints-dayDone;
     var nightMissed=totalCheckpoints-nightDone;
     var dayComplete=dayDone===totalCheckpoints;
     var nightComplete=nightDone===totalCheckpoints;
 
-    // Day cell
-    var dayCellStyle,dayCellContent,nightCellStyle,nightCellContent;
-    if(isFuture){
-      dayCellStyle="background:var(--bg);color:var(--muted);border-radius:var(--rs);padding:8px;text-align:center";
-      dayCellContent="<i class='fa-solid fa-minus' style='font-size:8px'></i>";
-      nightCellStyle=dayCellStyle;nightCellContent=dayCellContent;
-    } else {
-      if(dayComplete){
-        dayCellStyle="background:var(--ok-bg);border:1px solid #065f46;border-radius:var(--rs);padding:8px;text-align:center;color:var(--ok)";
-        dayCellContent="<i class='fa-solid fa-circle-check'></i>";
-      } else {
-        dayCellStyle="background:var(--err-bg);border:1px solid #7f1d1d;border-radius:var(--rs);padding:8px;text-align:center;color:var(--err);cursor:pointer";
-        dayCellContent="<i class='fa-solid fa-triangle-exclamation' style='margin-right:3px'></i>"+dayMissed;
-      }
-      if(nightComplete){
-        nightCellStyle="background:var(--ok-bg);border:1px solid #065f46;border-radius:var(--rs);padding:8px;text-align:center;color:var(--ok)";
-        nightCellContent="<i class='fa-solid fa-circle-check'></i>";
-      } else {
-        nightCellStyle="background:var(--err-bg);border:1px solid #7f1d1d;border-radius:var(--rs);padding:8px;text-align:center;color:var(--err);cursor:pointer";
-        nightCellContent="<i class='fa-solid fa-triangle-exclamation' style='margin-right:3px'></i>"+nightMissed;
-      }
-    }
+    // Build cell: date number on top, then two halves (day/night)
+    var border=isToday?"border:2px solid var(--pri)":"border:1px solid var(--border)";
+    h+="<div style='"+border+";border-radius:var(--rs);overflow:hidden;min-height:58px'>";
+    // Date number
+    h+="<div style='font-size:11px;font-weight:"+(isToday?"700":"500")+";color:"+(isToday?"var(--pri)":"var(--text)")+";padding:2px 0'>"+d+"</div>";
 
-    var isToday=dateStr===todayStr?" font-weight:700;color:var(--pri)":"";
-    h+="<tr style='border-bottom:1px solid var(--border)'>";
-    h+="<td style='padding:8px 4px;"+isToday+"'><div style='font-weight:600'>"+d+"</div><div style='font-size:9px;color:var(--muted)'>"+dayName+"</div></td>";
     if(isFuture){
-      h+="<td style='padding:4px'><div style='"+dayCellStyle+"'>"+dayCellContent+"</div></td>";
-      h+="<td style='padding:4px'><div style='"+nightCellStyle+"'>"+nightCellContent+"</div></td>";
+      h+="<div style='display:flex;flex-direction:column;flex:1'>";
+      h+="<div style='flex:1;background:var(--bg);color:var(--muted);font-size:7px;padding:2px 0'>—</div>";
+      h+="<div style='flex:1;background:var(--bg);color:var(--muted);font-size:7px;padding:2px 0'>—</div>";
+      h+="</div>";
     } else {
-      var dayClick=dayComplete?"":"onclick=\"showCalDetail('"+dateStr+"','day')\"";
-      var nightClick=nightComplete?"":"onclick=\"showCalDetail('"+dateStr+"','night')\"";
-      h+="<td style='padding:4px'><div style='"+dayCellStyle+"' "+dayClick+">"+dayCellContent+"</div></td>";
-      h+="<td style='padding:4px'><div style='"+nightCellStyle+"' "+nightClick+">"+nightCellContent+"</div></td>";
+      // Day shift (top half) — sun icon
+      var dayBg=dayComplete?"var(--ok-bg)":"var(--err-bg)";var dayClr=dayComplete?"var(--ok)":"var(--err)";
+      var dayClick=dayComplete?"":"cursor:pointer";
+      var dayOnclick=dayComplete?"":" onclick=\"showCalDetail('"+dateStr+"','day')\"";
+      h+="<div style='background:"+dayBg+";color:"+dayClr+";font-size:9px;font-weight:600;padding:3px 0;"+dayClick+"'"+dayOnclick+">";
+      h+="<i class='fa-solid fa-sun' style='font-size:7px;margin-right:1px'></i>";
+      h+=dayComplete?"<i class='fa-solid fa-check' style='font-size:7px'></i>":""+dayMissed;
+      h+="</div>";
+      // Night shift (bottom half) — moon icon
+      var nightBg=nightComplete?"var(--ok-bg)":"var(--err-bg)";var nightClr=nightComplete?"var(--ok)":"var(--err)";
+      var nightClick=nightComplete?"":"cursor:pointer";
+      var nightOnclick=nightComplete?"":" onclick=\"showCalDetail('"+dateStr+"','night')\"";
+      h+="<div style='background:"+nightBg+";color:"+nightClr+";font-size:9px;font-weight:600;padding:3px 0;"+nightClick+"'"+nightOnclick+">";
+      h+="<i class='fa-solid fa-moon' style='font-size:7px;margin-right:1px'></i>";
+      h+=nightComplete?"<i class='fa-solid fa-check' style='font-size:7px'></i>":""+nightMissed;
+      h+="</div>";
     }
-    h+="</tr>";
+    h+="</div>";
   }
-  h+="</tbody></table>";
+  h+="</div>";
+  // Legend
+  h+="<div style='display:flex;gap:12px;justify-content:center;margin-top:8px;font-size:9px;color:var(--muted)'>";
+  h+="<span><i class='fa-solid fa-sun' style='margin-right:2px'></i>Day shift (top)</span>";
+  h+="<span><i class='fa-solid fa-moon' style='margin-right:2px'></i>Night shift (bottom)</span>";
+  h+="<span style='color:var(--ok)'>\u2713 Complete</span>";
+  h+="<span style='color:var(--err)'># Missed</span>";
+  h+="</div>";
   grid.innerHTML=h;
 }
 
