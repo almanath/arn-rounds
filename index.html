@@ -198,7 +198,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <div id="mgrList"></div>
   </div>
   <div class="card">
-    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)">ARN60</span></div>
     <div id="adminList"></div>
   </div>
 </div>
@@ -508,8 +508,20 @@ function doLogin(){}
 function doLogout(){doMgrLogout()}
 
 
-function renderSiteSel(elId){var el=document.getElementById(elId);if(!el)return;var h='';var vs=getVisibleSites();for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' onclick=\"setSite('"+vs[i]+"')\">"+vs[i]+"</button>"}el.innerHTML=h}
+function renderSiteSel(elId,handler){
+  var el=document.getElementById(elId);if(!el)return;var h='';var vs=getVisibleSites();var fn=handler||"setSite";
+  for(var i=0;i<vs.length;i++){h+="<button class='site-btn"+(vs[i]===curSite?" active":"")+"' data-sitesel='"+vs[i]+"' data-sitefn='"+fn+"'>"+vs[i]+"</button>"}
+  el.innerHTML=h;
+  var btns=el.querySelectorAll("[data-sitesel]");
+  for(var b=0;b<btns.length;b++){
+    btns[b].addEventListener("click",(function(site,fnName){return function(){window[fnName](site)}})(btns[b].getAttribute("data-sitesel"),btns[b].getAttribute("data-sitefn")));
+  }
+}
 function setSite(s){if(!mgrSite){curSite=s}renderAll()}
+function setSiteQR(s){if(!mgrSite){curSite=s}renderSiteSel("siteSelQR","setSiteQR");rQR()}
+function setSiteAdmin(s){if(!mgrSite){curSite=s}renderSiteSel("siteSel3","setSiteAdmin");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
+function setSiteHist(s){if(!mgrSite){curSite=s}renderSiteSel("siteSel2","setSiteHist");rHist()}
+function setSiteScan(s){if(!mgrSite){curSite=s}renderSiteSel("siteSel","setSiteScan");uStats();rgg()}
 function renderAll(){
   renderStatusSiteSel();renderSiteSel("siteSel");renderSiteSel("siteSel2");renderSiteSel("siteSel3");renderSiteSel("siteSelQR");
   rStatus();rgg();uStats();rMgrs();
@@ -524,14 +536,14 @@ function sp(p){
   var nv=document.querySelector(".nav-item[data-page='"+p+"']");if(nv)nv.classList.add("active");
   if(p==="status"){renderStatusSiteSel();rStatus()}
   if(p==="overview"){renderOverSiteSel();rOverview()}
-  if(p==="history"){renderSiteSel("siteSel2");rHist()}
-  if(p==="scan"){renderSiteSel("siteSel");uStats();rgg()}
-  if(p==="qr"){renderSiteSel("siteSelQR");rQR()}
+  if(p==="history"){renderSiteSel("siteSel2","setSiteHist");rHist()}
+  if(p==="scan"){renderSiteSel("siteSel","setSiteScan");uStats();rgg()}
+  if(p==="qr"){renderSiteSel("siteSelQR","setSiteQR");rQR()}
   if(p==="archive"){renderArchSiteSel();rArch()}
   if(p==="calendar"){renderCalSiteSel();rCalendar()}
   if(p==="issues"){renderIssuesSiteSel();rIssues()}
   if(p==="settings"){populateProxySiteSelect();loadProxies()}
-  if(p==="admin"){renderSiteSel("siteSel3");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
+  if(p==="admin"){renderSiteSel("siteSel3","setSiteAdmin");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
 }
 
 function rgg(){
