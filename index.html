@@ -1116,6 +1116,7 @@ function loadProxies(){
 
 function revokeProxy(key){
   if(!fbReady)return;
+  if(!confirm("Remove this proxy? Their access will be revoked immediately."))return;
   fbDb.ref("proxies/"+key+"/active").set(false);
   fbDb.ref("proxies/"+key+"/end").set(new Date().toISOString().split("T")[0]);
   loadProxies();
