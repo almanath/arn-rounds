@@ -199,10 +199,6 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   </div>
   <div class="card">
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)
-    <div style="display:flex;gap:6px;margin-bottom:8px">
-      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0" id="btnActivateAll"><i class="fa-solid fa-toggle-on"></i> Activate All</button>
-      <button class="sub-btn" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)" id="btnDeactivateAll"><i class="fa-solid fa-toggle-off"></i> Deactivate All</button>
-    </div>
     <div id="adminList"></div>
   </div>
 </div>
@@ -393,7 +389,8 @@ var AREAS_6X=[
 {id:"DAHU-E-GF-1",name:"DAHU East GF #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-GF-2",name:"DAHU East GF #2",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-1",name:"DAHU East 1F #1",group:"DAHU East",icon:"fa-wind",enabled:true},{id:"DAHU-E-1F-2",name:"DAHU East 1F #2",group:"DAHU East",icon:"fa-wind",enabled:true},
 {id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},{id:"FUEL-FARM",name:"Fuel Farm",group:"Other",icon:"fa-gas-pump",enabled:true},
 {id:"ER-ADMIN",name:"ER Admin",group:"Facility Rooms",icon:"fa-door-open",enabled:true},{id:"IW-ROOM",name:"IW Room",group:"Facility Rooms",icon:"fa-door-open",enabled:true},
-{id:"SPRINKLER",name:"Sprinkler Room",group:"Facility Rooms",icon:"fa-shower",enabled:true}
+{id:"SPRINKLER",name:"Sprinkler Room",group:"Facility Rooms",icon:"fa-shower",enabled:true},
+{id:"HV-SUB",name:"HV Substation",group:"Facility Rooms",icon:"fa-bolt-lightning",enabled:true}
 ];
 var AREAS_61=AREAS_6X.concat([{id:"FP-1",name:"Fire Pump 1",group:"Other",icon:"fa-fire-extinguisher",enabled:true},{id:"FP-2",name:"Fire Pump 2",group:"Other",icon:"fa-fire-extinguisher",enabled:true}]);
 var AREAS_5X=[
@@ -408,10 +405,13 @@ var AREAS_5X=[
 {id:"ER-4C",name:"ER 4C",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-1",name:"ER 1",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-5C",name:"ER 5C",group:"Electrical Rooms",icon:"fa-plug",enabled:true},{id:"ER-8",name:"ER 8",group:"Electrical Rooms",icon:"fa-plug",enabled:true},
 {id:"MV-ROOM",name:"MV Room",group:"Other",icon:"fa-building",enabled:true},
 {id:"FP-1",name:"Fire Pump 1",group:"Other",icon:"fa-fire-extinguisher",enabled:true},{id:"FP-2",name:"Fire Pump 2",group:"Other",icon:"fa-fire-extinguisher",enabled:true}
+,{id:"IW-ROOM",name:"IW Room",group:"Facility Rooms",icon:"fa-door-open",enabled:true},{id:"SPRINKLER",name:"Sprinkler Room",group:"Facility Rooms",icon:"fa-shower",enabled:true}
 ];
 
+var AREAS_52=AREAS_5X.concat([{id:"ASTRA",name:"Astra",group:"Other",icon:"fa-building",enabled:true}]);
+
 function is5X(s){return s==="ARN50"||s==="ARN51"||s==="ARN52"}
-function getTemplate(s){if(s==="ARN61")return AREAS_61;return is5X(s)?AREAS_5X:AREAS_6X}
+function getTemplate(s){if(s==="ARN61")return AREAS_61;if(s==="ARN52")return AREAS_52;return is5X(s)?AREAS_5X:AREAS_6X}
 
 var siteAreas={};
 for(var si=0;si<SITES.length;si++){var tmpl=getTemplate(SITES[si]);var arr=[];for(var ai=0;ai<tmpl.length;ai++){var a=tmpl[ai];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}siteAreas[SITES[si]]=arr}
@@ -853,15 +853,21 @@ function rQR(){
 }
 
 function rAdmin(){
-  var as=siteAreas[curSite];var h="";
+  var as=siteAreas[curSite];var el=document.getElementById("adminList");if(!el)return;
+  var h="<div style='display:flex;gap:6px;margin-bottom:8px'>";
+  h+="<button class='sub-btn' id='_actAll' style='flex:1;font-size:11px;padding:8px;margin-top:0'><i class='fa-solid fa-toggle-on'></i> Activate All</button>";
+  h+="<button class='sub-btn' id='_deactAll' style='flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)'><i class='fa-solid fa-toggle-off'></i> Deactivate All</button>";
+  h+="</div>";
   for(var i=0;i<as.length;i++){var a=as[i];
     h+="<div class='admin-row'><div><div class='name'>"+a.id+(a.enabled?"":" <span class='disabled-tag'>OFF</span>")+"</div><div class='area'>"+a.name+" \u2014 "+a.group+"</div></div><button class='toggle"+(a.enabled?" on":"")+"' onclick=\"togA('"+a.id+"')\"></button></div>"}
-  document.getElementById("adminList").innerHTML=h;
+  el.innerHTML=h;
+  var actBtn=document.getElementById("_actAll");
+  var deactBtn=document.getElementById("_deactAll");
+  if(actBtn)actBtn.addEventListener("click",function(){toggleAllAreas(true)});
+  if(deactBtn)deactBtn.addEventListener("click",function(){toggleAllAreas(false)});
 }
 function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
 function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;rAdmin();rgg()}
-var _ba=document.getElementById("btnActivateAll");if(_ba)_ba.addEventListener("click",function(){toggleAllAreas(true)});
-var _bd=document.getElementById("btnDeactivateAll");if(_bd)_bd.addEventListener("click",function(){toggleAllAreas(false)});
 
 function rMgrs(){
   var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
