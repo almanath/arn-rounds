@@ -1213,11 +1213,16 @@ function rIssues(){
     h+="<div style='font-size:9px;color:var(--muted)'>"+new Date(r.ts).toLocaleDateString()+"</div></div></div>";
     if(r.notes)h+="<div style='font-size:11px;color:var(--text2);margin:4px 0 6px;padding:4px 6px;background:var(--bg);border-radius:var(--rs)'>"+r.notes+"</div>";
     h+="<div style='display:flex;align-items:center;gap:6px'>";
-    h+="<label style='font-size:10px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer'><input type='checkbox' "+(isFixed?"checked disabled":"")+" onchange=\"markFixed('"+r.id+"','"+r.site+"',this.checked)\"> "+(isFixed?"Resolved":"Mark as fixed")+"</label>";
+    h+="<label style='font-size:10px;color:var(--text2);display:flex;align-items:center;gap:4px;cursor:pointer'><input type='checkbox' "+(isFixed?"checked":"")+" data-fixid='"+r.id+"' data-fixsite='"+r.site+"'> "+(isFixed?"Resolved":"Mark as fixed")+"</label>";
     h+=fixedBadge;
     h+="</div></div>";
   }
   el.innerHTML=h;
+  // Attach checkbox handlers
+  var cbs=el.querySelectorAll("[data-fixid]");
+  for(var c=0;c<cbs.length;c++){
+    cbs[c].addEventListener("change",(function(id,site){return function(){markFixed(id,site,this.checked)}})(cbs[c].getAttribute("data-fixid"),cbs[c].getAttribute("data-fixsite")));
+  }
 }
 
 function markFixed(roundId,site,checked){
