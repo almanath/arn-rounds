@@ -884,8 +884,32 @@ function rAdmin(){
     togBtns[t].addEventListener("click",(function(id){return function(){togA(id)}})(togBtns[t].getAttribute("data-togid")));
   }
 }
-function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}rAdmin();rgg()}
-function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;rAdmin();rgg()}
+function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}saveAreaStates();rAdmin();rgg()}
+function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;saveAreaStates();rAdmin();rgg()}
+
+// Persist enabled/disabled state for all site areas
+function saveAreaStates(){
+  var data={};
+  for(var s in siteAreas){
+    if(!siteAreas.hasOwnProperty(s))continue;
+    var as=siteAreas[s];var states={};
+    for(var i=0;i<as.length;i++)states[as[i].id]=as[i].enabled;
+    data[s]=states;
+  }
+  if(fbReady){try{fbDb.ref("config/areaStates").set(data)}catch(e){}}
+  try{localStorage.setItem("areaStates",JSON.stringify(data))}catch(e){}
+}
+function loadAreaStates(){
+  function applyStates(data){
+    if(!data)return;
+    for(var s in data){if(!data.hasOwnProperty(s)||!siteAreas[s])continue;
+      var states=data[s];var as=siteAreas[s];
+      for(var i=0;i<as.length;i++){if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
+    }
+  }
+  if(fbReady){try{fbDb.ref("config/areaStates").once("value",function(snap){applyStates(snap.val());renderAll()})}catch(e){}}
+  else{try{applyStates(JSON.parse(localStorage.getItem("areaStates")||"{}"));renderAll()}catch(e){}}
+}
 
 function rMgrs(){
   var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
@@ -1626,6 +1650,7 @@ checkQRParams();
           fbDb=firebase.database();
           fbReady=true;
           try{loadMgrAssignments()}catch(e){}
+          try{loadAreaStates()}catch(e){}
           try{loadWeeklyReportEnabled()}catch(e){}
           // Check pending issue reminders (3-day follow-up)
           setTimeout(function(){try{checkIssueReminders()}catch(e){}},3000);
