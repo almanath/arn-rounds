@@ -907,9 +907,13 @@ function loadAreaStates(){
       for(var i=0;i<as.length;i++){if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
     }
   }
-  if(fbReady){try{fbDb.ref("config/areaStates").once("value",function(snap){applyStates(snap.val());renderAll()})}catch(e){}}
-  else{try{applyStates(JSON.parse(localStorage.getItem("areaStates")||"{}"));renderAll()}catch(e){}}
+  // Always apply localStorage first (instant)
+  try{applyStates(JSON.parse(localStorage.getItem("areaStates")||"{}"))}catch(e){}
+  // Then load from Firebase if available (overrides localStorage)
+  if(fbReady){try{fbDb.ref("config/areaStates").once("value",function(snap){var d=snap.val();if(d){applyStates(d);renderAll()}})}catch(e){}}
 }
+// Load area states immediately on startup (before Firebase)
+try{loadAreaStates()}catch(e){}
 
 function rMgrs(){
   var el=document.getElementById("mgrList");if(!el)return;var h="";var isAdmin=mgrRole==="admin";
