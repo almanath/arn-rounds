@@ -124,6 +124,11 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <div class="stats" id="overWeek"></div>
   <div class="sh" style="margin-top:8px"><span style="font-size:12px">Checkpoints</span></div>
   <div id="overCheckpoints"></div>
+  <div id="recurringCard" style="display:none;margin-top:12px">
+    <div class="sh"><span style="font-size:12px"><i class="fa-solid fa-repeat" style="color:var(--warn);margin-right:4px"></i>Recurring Reports</span></div>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:6px">Checkpoints with multiple issues or notices in the last 4 months.</p>
+    <div id="recurringList"></div>
+  </div>
 </div>
 
 <div class="page" id="page-scan">
@@ -140,14 +145,23 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
 
 <div class="page" id="page-form">
   <button class="bk" onclick="sp('scan')"><i class="fa-solid fa-arrow-left"></i> Back</button>
+  <div id="noticeAlert" style="display:none;padding:10px;background:var(--err-bg);border:1px solid var(--err);border-radius:var(--rs);margin-bottom:10px">
+    <div style="font-size:11px;font-weight:600;color:var(--err);margin-bottom:4px"><i class="fa-solid fa-bell" style="margin-right:3px"></i> Notice from previous shift</div>
+    <div style="font-size:11px;color:var(--text)" id="noticeAlertText"></div>
+    <div style="font-size:10px;color:var(--text2);margin-top:6px">Is this issue still present?</div>
+    <div style="display:flex;gap:6px;margin-top:6px"><button class="sub-btn" id="noticeBtnYes" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)"><i class="fa-solid fa-check"></i> Yes — report as Issue</button><button class="sub-btn" id="noticeBtnNo" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--ok)"><i class="fa-solid fa-xmark"></i> No — cleared</button></div>
+  </div>
   <div class="fh"><div class="badge-g" id="fB">HS</div><div><div style="font-weight:600;font-size:14px" id="fN">House Supply</div><div style="font-size:10px;color:var(--muted)" id="fS">ARN60</div></div></div>
   <div class="fr" id="aliasRow" style="display:none"><label>Your alias <span style="color:var(--err)">*</span></label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"><div style="font-size:9px;color:var(--text2);margin-top:2px">Required for issue follow-up — you'll get a Slack DM reminder</div></div>
   <div class="fr"><label>Shift</label><div id="fShift"></div></div>
   <div class="fr"><label>Status</label><div class="sb">
     <button class="s-btn ok" onclick="ss('ok')" id="bO"><i class="fa-solid fa-circle-check"></i> All OK</button>
     <button class="s-btn issue" onclick="ss('issue')" id="bI"><i class="fa-solid fa-triangle-exclamation"></i> Issue</button>
+    <button class="s-btn" onclick="ss('notice')" id="bN" style="border-color:var(--warn)"><i class="fa-solid fa-bell" style="color:var(--warn)"></i> Notice</button>
   </div></div>
   <div class="fr" id="nR" style="display:none"><label>Notes <span style="color:var(--err)">*</span></label><textarea id="fNo" placeholder="Describe the issue..."></textarea></div>
+  <div class="fr" id="noticeRow" style="display:none"><label>Notice for next shift <span style="color:var(--warn)">*</span></label><textarea id="fNotice" placeholder="What should the next shift check up on?"></textarea></div>
+  <div id="noticeHelp" style="display:none;font-size:10px;color:var(--warn);margin-bottom:8px;padding:6px 8px;background:rgba(245,158,11,0.1);border-radius:var(--rs)"><i class="fa-solid fa-info-circle" style="margin-right:3px"></i>Use Notice to flag something for the next shift to check. This won't be recorded as an issue — the next person scanning this checkpoint will see your notice and confirm if it's still present.</div>
   <button class="sub-btn" onclick="doSubmit()" id="sB"><i class="fa-solid fa-paper-plane"></i> Submit Round</button>
 </div>
 
@@ -178,6 +192,13 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <button class="sub-btn" style="flex:0 0 auto;font-size:11px;padding:8px 14px;margin-top:0" onclick="downloadIssues()"><i class="fa-solid fa-download" style="margin-right:3px"></i>Download Issues</button>
   </div>
   <div id="issuesList"></div>
+</div>
+
+<div class="page" id="page-notices">
+  <div class="site-sel" id="siteSelNotices"></div>
+  <div class="sh"><span><i class="fa-solid fa-bell" style="color:var(--warn);margin-right:4px"></i>Notice History</span></div>
+  <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Notices from the last 4 months. Active notices are shown first.</p>
+  <div id="noticeHistList"></div>
 </div>
 
 <div class="page" id="page-archive">
@@ -296,6 +317,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
   <button class="nav-item" onclick="sp('overview')" data-page="overview" id="navOverview" style="display:none"><i class="fa-solid fa-chart-line"></i>Overview</button>
   <button class="nav-item" onclick="sp('history')" data-page="history"><i class="fa-solid fa-clock-rotate-left"></i>History</button>
   <button class="nav-item" onclick="sp('issues')" data-page="issues"><i class="fa-solid fa-triangle-exclamation"></i>Issues</button>
+  <button class="nav-item" onclick="sp('notices')" data-page="notices"><i class="fa-solid fa-bell"></i>Notices</button>
   <button class="nav-item" onclick="sp('qr')" data-page="qr" id="navQR" style="display:none"><i class="fa-solid fa-print"></i>QR</button>
   <button class="nav-item" onclick="sp('calendar')" data-page="calendar" id="navCalendar" style="display:none"><i class="fa-solid fa-calendar-days"></i>Calendar</button>
   <button class="nav-item" onclick="sp('archive')" data-page="archive" id="navArchive" style="display:none"><i class="fa-solid fa-box-archive"></i>Archive</button>
@@ -542,6 +564,7 @@ function sp(p){
   if(p==="archive"){renderArchSiteSel();rArch()}
   if(p==="calendar"){renderCalSiteSel();rCalendar()}
   if(p==="issues"){renderIssuesSiteSel();rIssues()}
+  if(p==="notices"){renderNoticesSiteSel();rNoticeHistory()}
   if(p==="settings"){populateProxySiteSelect();loadProxies()}
   if(p==="admin"){renderSiteSel("siteSel3","setSiteAdmin");rAdmin();rMgrs();var as=document.getElementById("adminSite");if(as)as.textContent=curSite}
 }
@@ -565,18 +588,57 @@ function oForm(id){
   var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
   document.getElementById("fA").value=curUser?curUser.alias:savedAlias;
   var shift=getShift();document.getElementById("fShift").innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+shiftIcon(shift)+"'></i> "+shiftLabel(shift)+"</div>";
-  document.getElementById("fNo").value="";document.getElementById("nR").style.display="none";
-  document.getElementById("bO").className="s-btn ok sel";document.getElementById("bI").className="s-btn issue";document.getElementById("aliasRow").style.display="none";document.getElementById("sB").disabled=false;sp("form");
+  document.getElementById("fNo").value="";document.getElementById("fNotice").value="";
+  document.getElementById("nR").style.display="none";document.getElementById("noticeRow").style.display="none";
+  document.getElementById("noticeHelp").style.display="none";
+  document.getElementById("bO").className="s-btn ok sel";document.getElementById("bI").className="s-btn issue";document.getElementById("bN").className="s-btn";document.getElementById("bN").style.borderColor="var(--warn)";
+  document.getElementById("aliasRow").style.display="none";document.getElementById("sB").disabled=false;
+  // Check for existing notice on this checkpoint
+  document.getElementById("noticeAlert").style.display="none";
+  if(fbReady){
+    fbDb.ref("notices/"+curSite+"/"+a.id).once("value",function(snap){
+      var n=snap.val();
+      if(n&&n.text){
+        document.getElementById("noticeAlert").style.display="block";
+        document.getElementById("noticeAlertText").textContent=n.text+" — "+n.alias+" ("+new Date(n.ts).toLocaleString()+")";
+        var yBtn=document.getElementById("noticeBtnYes");var nBtn=document.getElementById("noticeBtnNo");
+        yBtn.onclick=function(){
+          ss("issue");document.getElementById("fNo").value="[From notice] "+n.text;
+          document.getElementById("noticeAlert").style.display="none";
+          fbDb.ref("notices/"+curSite+"/"+a.id).remove();
+          resolveNoticeHistory(curSite,a.id,"issue");
+        };
+        nBtn.onclick=function(){
+          document.getElementById("noticeAlert").style.display="none";
+          fbDb.ref("notices/"+curSite+"/"+a.id).remove();
+          resolveNoticeHistory(curSite,a.id,"cleared");
+        };
+      }
+    });
+  }
+  sp("form");
 }
-function ss(s){curSt=s;document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");document.getElementById("nR").style.display=s==="issue"?"block":"none";document.getElementById("aliasRow").style.display=s==="issue"?"block":"none"}
+function ss(s){curSt=s;
+  document.getElementById("bO").className="s-btn ok"+(s==="ok"?" sel":"");
+  document.getElementById("bI").className="s-btn issue"+(s==="issue"?" sel":"");
+  document.getElementById("bN").className="s-btn"+(s==="notice"?" sel":"");document.getElementById("bN").style.borderColor=s==="notice"?"var(--warn)":"var(--warn)";
+  if(s==="notice"){document.getElementById("bN").style.background="rgba(245,158,11,0.15)";document.getElementById("bN").style.color="var(--warn)";document.getElementById("bN").style.borderColor="var(--warn)"}
+  else{document.getElementById("bN").style.background="";document.getElementById("bN").style.color="";document.getElementById("bN").style.borderColor="var(--warn)"}
+  document.getElementById("nR").style.display=s==="issue"?"block":"none";
+  document.getElementById("noticeRow").style.display=s==="notice"?"block":"none";
+  document.getElementById("aliasRow").style.display=(s==="issue"||s==="notice")?"block":"none";
+  document.getElementById("noticeHelp").style.display=s==="notice"?"block":"none";
+}
 function doSubmit(){
-  if(!curSt){alert("Select a status.");return}if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
+  if(!curSt){alert("Select a status.");return}
+  if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
+  if(curSt==="notice"&&!document.getElementById("fNotice").value.trim()){alert("Describe what the next shift should check.");return}
   var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
-  if(curSt==="issue"&&!aliasVal){alert("Enter your alias so we can send you a follow-up reminder.");document.getElementById("fA").focus();return}
+  if((curSt==="issue"||curSt==="notice")&&!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
   // Remember alias for next time
   try{localStorage.setItem("roundsAlias",aliasVal)}catch(e){}
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
-  var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:aliasVal,ts:new Date().toISOString(),shift:shift,status:curSt,notes:notes};
+  var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:aliasVal||"dceo",ts:new Date().toISOString(),shift:shift,status:curSt==="notice"?"ok":curSt,notes:notes};
   saveRound(newRound);
   document.getElementById("sB").disabled=true;var ov=document.getElementById("sO");ov.classList.add("show");
   if(curSt==="issue"){
@@ -586,7 +648,35 @@ function doSubmit(){
     ne.classList.add("show");setTimeout(function(){ne.classList.remove("show")},4500);
     scheduleIssueReminder(curGen.id,curSite,notes,aliasVal);
   }
+  if(curSt==="notice"){
+    // Save notice for next shift to see
+    var noticeText=document.getElementById("fNotice").value.trim();
+    if(fbReady&&noticeText){
+      fbDb.ref("notices/"+curSite+"/"+curGen.id).set({text:noticeText,alias:aliasVal,ts:new Date().toISOString(),site:curSite,areaId:curGen.id});
+      // Also save to noticeHistory for 4-month archive
+      fbDb.ref("noticeHistory").push({text:noticeText,alias:aliasVal,ts:new Date().toISOString(),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,status:"active",resolvedAt:null,resolvedBy:null,resolvedAction:null});
+    }
+    var ne=document.getElementById("notif");document.getElementById("notifMsg").innerHTML="<b>"+curGen.id+"</b> @ "+curSite+"<br><span style='font-size:9px;color:var(--warn)'><i class='fa-solid fa-bell'></i> Notice saved for next shift</span>";
+    ne.classList.add("show");setTimeout(function(){ne.classList.remove("show")},4500);
+  }
   setTimeout(function(){ov.classList.remove("show");sp("status")},1400);
+}
+
+// Resolve a notice in the noticeHistory archive
+function resolveNoticeHistory(site,areaId,action){
+  if(!fbReady)return;
+  var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  fbDb.ref("noticeHistory").orderByChild("site").equalTo(site).once("value",function(snap){
+    var data=snap.val();if(!data)return;
+    for(var key in data){
+      if(!data.hasOwnProperty(key))continue;
+      var entry=data[key];
+      if(entry.areaId===areaId&&entry.status==="active"){
+        fbDb.ref("noticeHistory/"+key).update({status:"resolved",resolvedAt:new Date().toISOString(),resolvedBy:savedAlias,resolvedAction:action});
+        break;
+      }
+    }
+  });
 }
 
 // ===== Issue Alert Config (Slack + Email) =====
@@ -1282,6 +1372,60 @@ function downloadIssues(){
   document.body.appendChild(a);a.click();document.body.removeChild(a);
 }
 
+// ===== Notice History Page =====
+var noticesSite="ARN60";
+function renderNoticesSiteSel(){
+  var el=document.getElementById("siteSelNotices");if(!el)return;var h="";
+  for(var i=0;i<SITES.length;i++){h+="<button class='site-btn"+(SITES[i]===noticesSite?" active":"")+"' data-nsite='"+SITES[i]+"'>"+SITES[i]+"</button>"}
+  el.innerHTML=h;
+  var btns=el.querySelectorAll("[data-nsite]");
+  for(var b=0;b<btns.length;b++){btns[b].addEventListener("click",(function(s){return function(){noticesSite=s;renderNoticesSiteSel();rNoticeHistory()}})(btns[b].getAttribute("data-nsite")))}
+}
+function rNoticeHistory(){
+  var el=document.getElementById("noticeHistList");if(!el)return;
+  if(!fbReady){el.innerHTML="<div class='es'><p>Loading...</p></div>";return}
+  fbDb.ref("noticeHistory").once("value",function(snap){
+    var data=snap.val();if(!data){el.innerHTML="<div class='es'><p>No notices yet.</p></div>";return}
+    var fourMonths=4*30*86400000;var now=Date.now();
+    var active=[];var resolved=[];
+    for(var key in data){
+      if(!data.hasOwnProperty(key))continue;
+      var n=data[key];if(n.site!==noticesSite)continue;
+      var age=now-new Date(n.ts).getTime();if(age>fourMonths)continue;
+      if(n.status==="active")active.push(n);else resolved.push(n);
+    }
+    active.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    resolved.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    if(!active.length&&!resolved.length){el.innerHTML="<div class='es'><p>No notices for "+noticesSite+" in the last 4 months.</p></div>";return}
+    var h="";
+    if(active.length){
+      h+="<div style='font-size:11px;font-weight:600;color:var(--warn);margin-bottom:6px'><i class='fa-solid fa-bell' style='margin-right:3px'></i>Active ("+active.length+")</div>";
+      for(var i=0;i<active.length;i++){var n=active[i];
+        h+="<div class='card' style='border-color:var(--warn);padding:10px'>";
+        h+="<div style='font-size:12px;font-weight:600'>"+n.areaId+" \u2014 "+(n.areaName||"")+"</div>";
+        h+="<div style='font-size:11px;color:var(--text2);margin:4px 0;padding:4px 6px;background:var(--bg);border-radius:var(--rs)'>"+n.text+"</div>";
+        h+="<div style='font-size:9px;color:var(--muted)'>"+n.alias+" \u00b7 "+new Date(n.ts).toLocaleString()+"</div>";
+        h+="<div style='margin-top:4px'><span class='bdg issue' style='background:rgba(245,158,11,0.15);color:var(--warn)'>Awaiting next shift</span></div>";
+        h+="</div>";
+      }
+    }
+    if(resolved.length){
+      h+="<div style='font-size:11px;font-weight:600;color:var(--muted);margin:12px 0 6px'><i class='fa-solid fa-circle-check' style='margin-right:3px'></i>Resolved ("+resolved.length+")</div>";
+      for(var j=0;j<resolved.length;j++){var r=resolved[j];
+        var actionBadge=r.resolvedAction==="issue"?"<span class='bdg issue'>Reported as Issue</span>":"<span class='bdg ok'>Cleared</span>";
+        h+="<div class='card' style='padding:10px;opacity:0.7'>";
+        h+="<div style='font-size:12px;font-weight:600'>"+r.areaId+" \u2014 "+(r.areaName||"")+"</div>";
+        h+="<div style='font-size:11px;color:var(--text2);margin:4px 0;padding:4px 6px;background:var(--bg);border-radius:var(--rs)'>"+r.text+"</div>";
+        h+="<div style='font-size:9px;color:var(--muted)'>"+r.alias+" \u00b7 "+new Date(r.ts).toLocaleString()+"</div>";
+        h+="<div style='display:flex;gap:6px;align-items:center;margin-top:4px'>"+actionBadge;
+        if(r.resolvedBy)h+="<span style='font-size:9px;color:var(--muted)'>by "+r.resolvedBy+" \u00b7 "+new Date(r.resolvedAt).toLocaleString()+"</span>";
+        h+="</div></div>";
+      }
+    }
+    el.innerHTML=h;
+  });
+}
+
 // ===== DCEO Status Page =====
 function renderStatusSiteSel(){
   var el=document.getElementById("siteSelStatus");if(!el)return;var h="";
@@ -1462,6 +1606,77 @@ function rOverview(){
     ch+="<div style='display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)'><div style='font-size:14px'>"+icon+"</div><div style='font-size:11px;font-weight:600;flex:1'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div>";
   }
   var oc=document.getElementById("overCheckpoints");if(oc)oc.innerHTML=ch;
+  // Show recurring reports for managers/admin
+  if(mgrMode){try{rRecurring(site)}catch(e){}}
+}
+
+// Recurring Reports — shows checkpoints with multiple issues/notices (manager/admin only)
+function rRecurring(site){
+  var card=document.getElementById("recurringCard");
+  var el=document.getElementById("recurringList");
+  if(!card||!el)return;
+  if(!mgrMode){card.style.display="none";return}
+  card.style.display="block";
+
+  var fourMonths=4*30*86400000;var now=Date.now();
+  // Collect issues from rounds
+  var reports={};// key=areaId, value={name,group,items:[]}
+  for(var i=0;i<rounds.length;i++){
+    var r=rounds[i];if(r.site!==site||r.status!=="issue")continue;
+    var age=now-new Date(r.ts).getTime();if(age>fourMonths)continue;
+    if(!reports[r.areaId])reports[r.areaId]={name:r.areaName,group:r.group,items:[]};
+    reports[r.areaId].items.push({type:"issue",text:r.notes||"",alias:r.alias,ts:r.ts});
+  }
+  // Also collect from noticeHistory (via Firebase)
+  if(!fbReady){renderRecurringList(el,reports);return}
+  fbDb.ref("noticeHistory").once("value",function(snap){
+    var data=snap.val();
+    if(data){
+      for(var key in data){
+        if(!data.hasOwnProperty(key))continue;
+        var n=data[key];if(n.site!==site)continue;
+        var age=now-new Date(n.ts).getTime();if(age>fourMonths)continue;
+        if(!reports[n.areaId])reports[n.areaId]={name:n.areaName||"",group:n.group||"",items:[]};
+        reports[n.areaId].items.push({type:"notice",text:n.text||"",alias:n.alias,ts:n.ts,status:n.status,action:n.resolvedAction||""});
+      }
+    }
+    renderRecurringList(el,reports);
+  });
+}
+
+function renderRecurringList(el,reports){
+  // Filter to only items with more than 1 report
+  var recurring=[];
+  for(var areaId in reports){
+    if(!reports.hasOwnProperty(areaId))continue;
+    var r=reports[areaId];
+    if(r.items.length>1)recurring.push({areaId:areaId,name:r.name,group:r.group,items:r.items,count:r.items.length});
+  }
+  recurring.sort(function(a,b){return b.count-a.count});
+  if(!recurring.length){el.innerHTML="<div style='font-size:10px;color:var(--ok);padding:8px'><i class='fa-solid fa-circle-check' style='margin-right:3px'></i>No recurring issues found.</div>";return}
+  var h="";
+  for(var i=0;i<recurring.length;i++){
+    var r=recurring[i];
+    h+="<div class='card' style='padding:10px;margin-bottom:6px'>";
+    h+="<div style='display:flex;align-items:center;gap:6px;cursor:pointer' data-recurr='"+i+"'>";
+    h+="<div style='font-size:12px;font-weight:600;flex:1'>"+r.areaId+" \u2014 "+r.name+"</div>";
+    h+="<span class='bdg issue' style='background:rgba(245,158,11,0.15);color:var(--warn)'>"+r.count+"x reported</span>";
+    h+="<i class='fa-solid fa-chevron-down' style='font-size:10px;color:var(--muted)'></i></div>";
+    h+="<div class='recurr-details' id='recurr-"+i+"' style='display:none;margin-top:8px;border-top:1px solid var(--border);padding-top:6px'>";
+    r.items.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});
+    for(var j=0;j<r.items.length;j++){
+      var it=r.items[j];
+      var icon=it.type==="issue"?"<i class='fa-solid fa-triangle-exclamation' style='color:var(--err)'></i>":"<i class='fa-solid fa-bell' style='color:var(--warn)'></i>";
+      h+="<div style='font-size:10px;padding:3px 0;display:flex;gap:6px;align-items:flex-start'>"+icon+"<div><span style='font-weight:600'>"+(it.type==="issue"?"Issue":"Notice")+"</span> — "+(it.text||"No details")+"<br><span style='color:var(--muted)'>"+it.alias+" \u00b7 "+new Date(it.ts).toLocaleString()+"</span></div></div>";
+    }
+    h+="</div></div>";
+  }
+  el.innerHTML=h;
+  // Attach expand/collapse handlers
+  var toggles=el.querySelectorAll("[data-recurr]");
+  for(var t=0;t<toggles.length;t++){
+    toggles[t].addEventListener("click",(function(idx){return function(){var det=document.getElementById("recurr-"+idx);if(det)det.style.display=det.style.display==="none"?"block":"none"}})(toggles[t].getAttribute("data-recurr")));
+  }
 }
 
 // ===== Proxy System =====
