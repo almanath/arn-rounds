@@ -679,7 +679,7 @@ function slackDM(alias,text){
 
 // Send issue alert via Slack DM and/or Email
 function scheduleIssueReminder(areaId,site,notes,submitterAlias){
-  var msg="\u26a0\ufe0f *Issue reported: "+areaId+" @ "+site+"*\n"+notes+"\n_Submitted "+new Date().toLocaleString()+"_\n\nPlease follow up on this issue.";
+  var msg="\u26a0\ufe0f *Issue reported: "+areaId+" @ "+site+"*\n"+notes+"\n_Submitted "+new Date().toLocaleString()+"_\n\nPlease follow up on this issue.\n\n:link: <"+QR_BASE_URL+"|Open Rounds Tracker>";
   // Slack DM to submitter
   if(alertConfig.slackBotToken&&submitterAlias){
     try{
@@ -702,7 +702,7 @@ function scheduleIssueReminder(areaId,site,notes,submitterAlias){
   if(fbReady&&alertConfig.slackBotToken&&submitterAlias){
     var ids=alertConfig.slackIds||{};var userId=ids[submitterAlias];
     if(userId){
-      var reminderText="\ud83d\udd14 *Reminder: Issue follow-up needed*\nYou reported an issue at *"+areaId+"* @ *"+site+"* 3 days ago.\n"+(notes?notes+"\n":"")+ "\nHas this been resolved? Check the Issues page to mark it as fixed.";
+      var reminderText="\ud83d\udd14 *Reminder: Issue follow-up needed*\nYou reported an issue at *"+areaId+"* @ *"+site+"* 3 days ago.\n"+(notes?notes+"\n":"")+ "\nHas this been resolved? Check the Issues page to mark it as fixed.\n\n:link: <"+QR_BASE_URL+"|Open Rounds Tracker>";
       var reminderEntry={token:alertConfig.slackBotToken,userId:userId,alias:submitterAlias,text:reminderText,status:"pending",ts:new Date().toISOString(),fireAt:new Date(Date.now()+3*24*60*60*1000).toISOString()};
       try{fbDb.ref("issueReminders").push(reminderEntry)}catch(e){}
     }
@@ -1503,7 +1503,7 @@ function assignProxy(){
   
   // Open email
   var subject="Rounds Tracker - Proxy Access for "+site;
-  var body="Hi "+DIR[alias].n+",\n\nYou have been assigned as a proxy for "+site+" facility rounds.\n\nYour temporary PIN: "+pin+"\nAccess period: "+startD+" to "+endD+"\n\nOpen the Rounds Tracker app, tap Manager, and enter this PIN to view "+site+" rounds and status.\n\nThis PIN will automatically expire on "+endD+".";
+  var body="Hi "+DIR[alias].n+",\n\nYou have been assigned as a proxy for "+site+" facility rounds.\n\nYour temporary PIN: "+pin+"\nAccess period: "+startD+" to "+endD+"\n\nOpen the Rounds Tracker app, tap Manager, and enter this PIN to view "+site+" rounds and status.\n\nLink: "+QR_BASE_URL+"\n\nThis PIN will automatically expire on "+endD+".";
   try{window.open("mailto:"+alias+"@amazon.com?subject="+encodeURIComponent(subject)+"&body="+encodeURIComponent(body));}catch(em){}
   
   // Clear form
