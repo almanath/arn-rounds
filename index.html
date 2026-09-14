@@ -152,7 +152,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <div style="display:flex;gap:6px;margin-top:6px"><button class="sub-btn" id="noticeBtnYes" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)"><i class="fa-solid fa-check"></i> Yes — report as Issue</button><button class="sub-btn" id="noticeBtnNo" style="flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--ok)"><i class="fa-solid fa-xmark"></i> No — cleared</button></div>
   </div>
   <div class="fh"><div class="badge-g" id="fB">HS</div><div><div style="font-weight:600;font-size:14px" id="fN">House Supply</div><div style="font-size:10px;color:var(--muted)" id="fS">ARN60</div></div></div>
-  <div class="fr" id="aliasRow" style="display:none"><label>Your alias <span style="color:var(--err)">*</span></label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"><div style="font-size:9px;color:var(--text2);margin-top:2px">Required for issue follow-up — you'll get a Slack DM reminder</div></div>
+  <div class="fr" id="aliasRow"><label>Your alias <span style="color:var(--err)">*</span></label><input type="text" class="sx" id="fA" placeholder="e.g. almanath" style="margin-bottom:0" autocomplete="username"><div style="font-size:9px;color:var(--text2);margin-top:2px">Your alias is recorded with every round submission</div></div>
   <div class="fr"><label>Shift</label><div id="fShift"></div></div>
   <div class="fr"><label>Status</label><div class="sb">
     <button class="s-btn ok" onclick="ss('ok')" id="bO"><i class="fa-solid fa-circle-check"></i> All OK</button>
@@ -596,7 +596,7 @@ function oForm(id){
   document.getElementById("nR").style.display="none";document.getElementById("noticeRow").style.display="none";
   document.getElementById("noticeHelp").style.display="none";
   document.getElementById("bO").className="s-btn ok sel";document.getElementById("bI").className="s-btn issue";document.getElementById("bN").className="s-btn";document.getElementById("bN").style.borderColor="var(--warn)";
-  document.getElementById("aliasRow").style.display="none";document.getElementById("sB").disabled=false;
+  document.getElementById("aliasRow").style.display="block";document.getElementById("sB").disabled=false;
   // Check for existing notice on this checkpoint
   document.getElementById("noticeAlert").style.display="none";
   if(fbReady){
@@ -630,7 +630,7 @@ function ss(s){curSt=s;
   else{document.getElementById("bN").style.background="";document.getElementById("bN").style.color="";document.getElementById("bN").style.borderColor="var(--warn)"}
   document.getElementById("nR").style.display=s==="issue"?"block":"none";
   document.getElementById("noticeRow").style.display=s==="notice"?"block":"none";
-  document.getElementById("aliasRow").style.display=(s==="issue"||s==="notice")?"block":"none";
+  document.getElementById("aliasRow").style.display="block";
   document.getElementById("noticeHelp").style.display=s==="notice"?"block":"none";
 }
 function doSubmit(){
@@ -638,7 +638,7 @@ function doSubmit(){
   if(curSt==="issue"&&!document.getElementById("fNo").value.trim()){alert("Describe the issue.");return}
   if(curSt==="notice"&&!document.getElementById("fNotice").value.trim()){alert("Describe what the next shift should check.");return}
   var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
-  if((curSt==="issue"||curSt==="notice")&&!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
+  if(!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
   // Remember alias for next time
   try{localStorage.setItem("roundsAlias",aliasVal)}catch(e){}
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
