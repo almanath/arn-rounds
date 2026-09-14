@@ -583,7 +583,11 @@ function rgg(){
 }
 
 function oForm(id){
-  var a=findA(id);if(!a||!a.enabled)return;curGen=a;curSt="ok";
+  var a=findA(id);if(!a)return;
+  if(!a.enabled&&!window._qrFormActive){return}// Allow QR scans even for disabled areas
+  // Sanitize ID for Firebase paths (dots are not allowed in Firebase keys)
+  var fbId=a.id.replace(/\./g,"_");
+  curGen=a;curSt="ok";
   document.getElementById("fB").textContent=a.id;document.getElementById("fN").textContent=a.name;document.getElementById("fS").textContent=curSite;
   var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
   document.getElementById("fA").value=curUser?curUser.alias:savedAlias;
@@ -596,7 +600,7 @@ function oForm(id){
   // Check for existing notice on this checkpoint
   document.getElementById("noticeAlert").style.display="none";
   if(fbReady){
-    fbDb.ref("notices/"+curSite+"/"+a.id).once("value",function(snap){
+    try{fbDb.ref("notices/"+curSite+"/"+fbId).once("value",function(snap){
       var n=snap.val();
       if(n&&n.text){
         document.getElementById("noticeAlert").style.display="block";
@@ -605,16 +609,16 @@ function oForm(id){
         yBtn.onclick=function(){
           ss("issue");document.getElementById("fNo").value="[From notice] "+n.text;
           document.getElementById("noticeAlert").style.display="none";
-          fbDb.ref("notices/"+curSite+"/"+a.id).remove();
+          fbDb.ref("notices/"+curSite+"/"+fbId).remove();
           resolveNoticeHistory(curSite,a.id,"issue");
         };
         nBtn.onclick=function(){
           document.getElementById("noticeAlert").style.display="none";
-          fbDb.ref("notices/"+curSite+"/"+a.id).remove();
+          fbDb.ref("notices/"+curSite+"/"+fbId).remove();
           resolveNoticeHistory(curSite,a.id,"cleared");
         };
       }
-    });
+    })}catch(e){console.warn("[Notice] Firebase query error:",e)}
   }
   sp("form");
 }
@@ -652,7 +656,7 @@ function doSubmit(){
     // Save notice for next shift to see
     var noticeText=document.getElementById("fNotice").value.trim();
     if(fbReady&&noticeText){
-      fbDb.ref("notices/"+curSite+"/"+curGen.id).set({text:noticeText,alias:aliasVal,ts:new Date().toISOString(),site:curSite,areaId:curGen.id});
+      fbDb.ref("notices/"+curSite+"/"+curGen.id.replace(/\./g,"_")).set({text:noticeText,alias:aliasVal,ts:new Date().toISOString(),site:curSite,areaId:curGen.id});
       // Also save to noticeHistory for 4-month archive
       fbDb.ref("noticeHistory").push({text:noticeText,alias:aliasVal,ts:new Date().toISOString(),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,status:"active",resolvedAt:null,resolvedBy:null,resolvedAction:null});
     }
@@ -983,7 +987,7 @@ function saveAreaStates(){
   for(var s in siteAreas){
     if(!siteAreas.hasOwnProperty(s))continue;
     var as=siteAreas[s];var states={};
-    for(var i=0;i<as.length;i++)states[as[i].id]=as[i].enabled;
+    for(var i=0;i<as.length;i++)states[as[i].id.replace(/\./g,"_")]=as[i].enabled;
     data[s]=states;
   }
   if(fbReady){try{fbDb.ref("config/areaStates").set(data)}catch(e){}}
@@ -994,7 +998,8 @@ function loadAreaStates(){
     if(!data)return;
     for(var s in data){if(!data.hasOwnProperty(s)||!siteAreas[s])continue;
       var states=data[s];var as=siteAreas[s];
-      for(var i=0;i<as.length;i++){if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
+      for(var i=0;i<as.length;i++){var safeId=as[i].id.replace(/\./g,"_");
+        if(states.hasOwnProperty(safeId))as[i].enabled=states[safeId];else if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
     }
   }
   // Always apply localStorage first (instant)
@@ -1836,15 +1841,21 @@ function startApp(){
   }catch(e){}
   // Open form for QR checkpoint — retry until page-form is active
   if(QR_SITE&&QR_CP){
-    var qrRetries=0;
+    var qrRetries=0;var qrFormOpened=false;
+    window._qrFormActive=true;
     function tryOpenForm(){
       console.log("[QR] tryOpenForm attempt "+(qrRetries+1)+" cp="+QR_CP);
       oForm(QR_CP);
       var pg=document.querySelector(".page.active");
-      if((!pg||pg.id!=="page-form")&&qrRetries<10){qrRetries++;setTimeout(tryOpenForm,300)}
-      else{console.log("[QR] form open: "+(pg?pg.id:"none"))}
+      if(pg&&pg.id==="page-form"){qrFormOpened=true;console.log("[QR] form opened successfully")}
+      else if(qrRetries<20){qrRetries++;setTimeout(tryOpenForm,500)}
+      else{console.log("[QR] gave up after 20 retries, page: "+(pg?pg.id:"none"));window._qrFormActive=false}
     }
-    setTimeout(tryOpenForm,150);
+    setTimeout(tryOpenForm,300);
+    // Keep retrying even after Firebase loads
+    setTimeout(function(){if(!qrFormOpened){tryOpenForm()}},2000);
+    setTimeout(function(){if(!qrFormOpened){tryOpenForm()}},4000);
+    setTimeout(function(){window._qrFormActive=false},12000);
   }
 }
 startApp();
