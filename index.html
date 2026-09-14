@@ -1455,12 +1455,38 @@ function rStatus(){
     var icon=completed?(hasIssue?"<i class='fa-solid fa-triangle-exclamation' style='color:var(--warn)'></i>":"<i class='fa-solid fa-circle-check' style='color:var(--ok)'></i>"):"<i class='fa-regular fa-circle' style='color:var(--muted)'></i>";
     var statusTxt=completed?(hasIssue?"Issue reported":"Done"):"Pending";
     var statusClr=completed?(hasIssue?"var(--warn)":"var(--ok)"):"var(--muted)";
-    h+="<div class='card' style='display:flex;align-items:center;gap:10px;padding:10px'><div style='font-size:16px'>"+icon+"</div><div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div><div style='font-size:10px;color:"+statusClr+";font-weight:600'>"+statusTxt+"</div></div>";
+    h+="<div class='card' style='display:flex;align-items:center;gap:10px;padding:10px'><div style='font-size:16px'>"+icon+"</div><div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div><div style='font-size:10px;color:"+statusClr+";font-weight:600'>"+statusTxt+"</div>";
+    h+="<button data-qrissue='"+a.id+"' data-qrsite='"+curSite+"' style='background:none;border:1px solid var(--border);color:var(--muted);font-size:9px;padding:3px 6px;border-radius:4px;cursor:pointer;margin-left:6px;white-space:nowrap' title='Report a problem with this QR code'><i class='fa-solid fa-qrcode'></i> <i class='fa-solid fa-triangle-exclamation' style='font-size:7px'></i></button></div>";
   }
   var pct=total>0?Math.round(done/total*100):0;
   var ss=document.getElementById("statusStats");
   if(ss)ss.innerHTML="<div class='card'><div class='card-label'>Completed</div><div class='card-value' style='color:var(--ok);font-size:16px'>"+done+"/"+total+"</div></div><div class='card'><div class='card-label'>Progress</div><div class='card-value' style='color:var(--pri);font-size:16px'>"+pct+"%</div></div><div class='card'><div class='card-label'>Issues</div><div class='card-value' style='color:"+(issueCount>0?"var(--err)":"var(--ok)")+";font-size:16px'>"+issueCount+"</div></div>";
   var sl=document.getElementById("statusList");if(sl)sl.innerHTML=h;
+  // Attach QR issue report handlers
+  if(sl){
+    var qrBtns=sl.querySelectorAll("[data-qrissue]");
+    for(var q=0;q<qrBtns.length;q++){
+      qrBtns[q].addEventListener("click",(function(areaId,site){return function(e){e.stopPropagation();reportQRIssue(areaId,site)}})(qrBtns[q].getAttribute("data-qrissue"),qrBtns[q].getAttribute("data-qrsite")));
+    }
+  }
+}
+
+// Report QR code issue — sends Slack DM to admin and saves to Firebase
+function reportQRIssue(areaId,site){
+  var desc=prompt("Report a QR code issue at "+areaId+" ("+site+")\n\nDescribe the problem (e.g. damaged, missing, can't scan):");
+  if(!desc||!desc.trim())return;
+  var alias="";try{alias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  if(!alias){alias=prompt("Enter your alias:");if(!alias||!alias.trim())return;alias=alias.trim().toLowerCase()}
+  var report={areaId:areaId,site:site,description:desc.trim(),reportedBy:alias,ts:new Date().toISOString(),status:"open"};
+  // Save to Firebase
+  if(fbReady){try{fbDb.ref("qrIssues").push(report)}catch(e){}}
+  // Send Slack DM to admin (almanath)
+  var adminAlias="almanath";
+  var msg="\ud83d\udea8 *QR Code Issue Reported*\n\nCheckpoint: *"+areaId+"* @ *"+site+"*\nProblem: "+desc.trim()+"\nReported by: "+alias+"\nTime: "+new Date().toLocaleString()+"\n\nPlease print a replacement QR code from the Manage \u2192 QR page.\n\n:link: <"+QR_BASE_URL+"|Open Rounds Tracker>";
+  slackDM(adminAlias,msg);
+  // Also allow the reporter to submit their round via the form
+  alert("QR issue reported! A notification has been sent to the admin.\n\nYou can still submit your round for "+areaId+" — opening the form now.");
+  oForm(areaId);
 }
 
 function getRoundDateFromTS(ts){
