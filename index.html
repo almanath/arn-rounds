@@ -222,6 +222,22 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
     <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-toggle-on" style="color:var(--pri);margin-right:3px"></i> Areas for <span id="adminSite" style="color:var(--pri)">ARN60</span></div>
     <div id="adminList"></div>
   </div>
+  <div class="card" id="siteActivationCard" style="display:none">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-eye" style="color:var(--pri);margin-right:3px"></i> Site Activation</div>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:8px">Toggle which sites are visible to operators and managers. Inactive sites are hidden from all views except this admin page.</p>
+    <div id="siteActivationList"></div>
+  </div>
+  <div class="card" id="addSiteCard" style="display:none">
+    <div style="font-size:12px;font-weight:600;margin-bottom:6px"><i class="fa-solid fa-plus-circle" style="color:var(--pri);margin-right:3px"></i> Add New Site</div>
+    <p style="font-size:10px;color:var(--text2);margin-bottom:6px">Add a new site with a checkpoint template. It will appear across all pages after adding.</p>
+    <div style="display:flex;gap:4px;flex-wrap:wrap;margin-bottom:6px">
+      <input type="text" class="sx" id="newSiteName" placeholder="e.g. ARN73" style="flex:1;min-width:80px;margin-bottom:0;text-transform:uppercase">
+      <select class="sx" id="newSiteTemplate" style="flex:1;min-width:80px;margin-bottom:0"><option value="6X">6X Template</option><option value="5X">5X Template</option></select>
+      <input type="text" class="sx" id="newSitePIN" placeholder="4-digit PIN" maxlength="4" style="flex:1;min-width:60px;margin-bottom:0">
+    </div>
+    <button class="sub-btn" style="font-size:11px;padding:8px;margin-top:0" id="btnAddSite"><i class="fa-solid fa-plus"></i> Add Site</button>
+    <div id="addSiteMsg" style="display:none;margin-top:4px;font-size:10px;padding:4px 6px;border-radius:var(--rs)"></div>
+  </div>
 </div>
 
 <div class="page" id="page-calendar">
@@ -378,18 +394,20 @@ var DIR={
 "hueprest":{n:"Preston Mputu Huena",t:"Chief Engineer",r:"ce"}
 };
 
-var SITES=["ARN50","ARN51","ARN52","ARN60","ARN61","ARN62"];
+var SITES=["ARN50","ARN51","ARN52","ARN60","ARN61","ARN62","ARN70","ARN71","ARN72"];
+// Site activation — inactive sites are hidden from all views except admin Manage page
+var siteActive={ARN50:true,ARN51:true,ARN52:true,ARN60:true,ARN61:true,ARN62:true,ARN70:false,ARN71:false,ARN72:false};
 var QR_BASE_URL="https://almanath.github.io/arn-rounds/";
 var curSite="ARN60";var curUser=null;var curGen=null;var curSt=null;var hFilt="all";var archSite="ARN60";var archFilt="all";
 
 var appStarted=false;
-var SITE_PINS={ARN50:"5023",ARN51:"5147",ARN52:"5269",ARN60:"6034",ARN61:"6158",ARN62:"6271"};
+var SITE_PINS={ARN50:"5023",ARN51:"5147",ARN52:"5269",ARN60:"6034",ARN61:"6158",ARN62:"6271",ARN70:"7034",ARN71:"7158",ARN72:"7271"};
 var ADMIN_PIN="9999";
 var mgrMode=false;var mgrSite=null;var mgrRole=null;
 var weeklyReportEnabled={};
 
-var siteMgrs={ARN50:"mohagale",ARN51:"yukselon",ARN52:"jskeppar",ARN60:"mohagale",ARN61:"yukselon",ARN62:"jskeppar"};
-var siteCEs={ARN50:"hueprest",ARN51:"edwinahl",ARN52:"mathebc",ARN60:"albihngc",ARN61:"edwinahl",ARN62:"xabergem"};
+var siteMgrs={ARN50:"mohagale",ARN51:"yukselon",ARN52:"jskeppar",ARN60:"mohagale",ARN61:"yukselon",ARN62:"jskeppar",ARN70:"",ARN71:"",ARN72:""};
+var siteCEs={ARN50:"hueprest",ARN51:"edwinahl",ARN52:"mathebc",ARN60:"albihngc",ARN61:"edwinahl",ARN62:"xabergem",ARN70:"",ARN71:"",ARN72:""};
 
 var AREAS_6X=[
 {id:"HS",name:"House Supply",group:"Generator Yard",icon:"fa-bolt",enabled:true},
@@ -433,6 +451,7 @@ var AREAS_5X=[
 var AREAS_52=AREAS_5X.concat([{id:"ASTRA",name:"Astra",group:"Other",icon:"fa-building",enabled:true}]);
 
 function is5X(s){return s==="ARN50"||s==="ARN51"||s==="ARN52"}
+function is7X(s){return s.indexOf("ARN7")===0}
 function getTemplate(s){if(s==="ARN61")return AREAS_61;if(s==="ARN52")return AREAS_52;return is5X(s)?AREAS_5X:AREAS_6X}
 
 var siteAreas={};
@@ -582,6 +601,29 @@ function rgg(){
   var ec=0;for(var c=0;c<areas.length;c++){if(areas[c].enabled)ec++}document.getElementById("sA").textContent=ec;
 }
 
+// ===== Resilient alias storage (cookie + localStorage) =====
+// Safari ITP clears localStorage after 7 days of inactivity, so we also
+// store the alias in a long-lived cookie as a backup.
+function saveAlias(alias){
+  if(!alias)return;
+  try{localStorage.setItem("roundsAlias",alias)}catch(e){}
+  try{
+    var d=new Date();d.setFullYear(d.getFullYear()+1);
+    document.cookie="roundsAlias="+encodeURIComponent(alias)+"; expires="+d.toUTCString()+"; path=/; SameSite=Lax";
+  }catch(e){}
+}
+function getSavedAlias(){
+  var a="";
+  try{a=localStorage.getItem("roundsAlias")||""}catch(e){}
+  if(a)return a;
+  // Fall back to cookie if localStorage was cleared
+  try{
+    var m=document.cookie.match(/(?:^|;\s*)roundsAlias=([^;]+)/);
+    if(m){a=decodeURIComponent(m[1]);if(a){try{localStorage.setItem("roundsAlias",a)}catch(e){}}}
+  }catch(e){}
+  return a;
+}
+
 function oForm(id){
   var a=findA(id);if(!a)return;
   if(!a.enabled&&!window._qrFormActive){return}// Allow QR scans even for disabled areas
@@ -589,7 +631,7 @@ function oForm(id){
   var fbId=a.id.replace(/\./g,"_");
   curGen=a;curSt="ok";
   document.getElementById("fB").textContent=a.id;document.getElementById("fN").textContent=a.name;document.getElementById("fS").textContent=curSite;
-  var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  var savedAlias=getSavedAlias();
   document.getElementById("fA").value=curUser?curUser.alias:savedAlias;
   var shift=getShift();document.getElementById("fShift").innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+shiftIcon(shift)+"'></i> "+shiftLabel(shift)+"</div>";
   document.getElementById("fNo").value="";document.getElementById("fNotice").value="";
@@ -640,7 +682,7 @@ function doSubmit(){
   var aliasVal=(document.getElementById("fA").value||"").trim().toLowerCase();
   if(!aliasVal){alert("Enter your alias.");document.getElementById("fA").focus();return}
   // Remember alias for next time
-  try{localStorage.setItem("roundsAlias",aliasVal)}catch(e){}
+  saveAlias(aliasVal);
   var shift=getShift();var notes=document.getElementById("fNo").value.trim();
   var newRound={id:Date.now().toString(36),site:curSite,areaId:curGen.id,areaName:curGen.name,group:curGen.group,alias:aliasVal||"dceo",ts:new Date().toISOString(),shift:shift,status:curSt==="notice"?"ok":curSt,notes:notes};
   saveRound(newRound);
@@ -669,7 +711,7 @@ function doSubmit(){
 // Resolve a notice in the noticeHistory archive
 function resolveNoticeHistory(site,areaId,action){
   if(!fbReady)return;
-  var savedAlias="";try{savedAlias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  var savedAlias=getSavedAlias();
   fbDb.ref("noticeHistory").orderByChild("site").equalTo(site).once("value",function(snap){
     var data=snap.val();if(!data)return;
     for(var key in data){
@@ -960,26 +1002,212 @@ function rQR(){
 
 function rAdmin(){
   var as=siteAreas[curSite];var el=document.getElementById("adminList");if(!el)return;
-  if(!as||!as.length){el.innerHTML="<div style='font-size:11px;color:var(--muted)'>No areas found for "+curSite+"</div>";return}
+  if(!as)as=[];
   var h="<div style='display:flex;gap:6px;margin-bottom:8px'>";
   h+="<button class='sub-btn' id='_actAll' style='flex:1;font-size:11px;padding:8px;margin-top:0'><i class='fa-solid fa-toggle-on'></i> Activate All</button>";
   h+="<button class='sub-btn' id='_deactAll' style='flex:1;font-size:11px;padding:8px;margin-top:0;background:var(--err)'><i class='fa-solid fa-toggle-off'></i> Deactivate All</button>";
   h+="</div>";
+  if(!as.length){h+="<div style='font-size:11px;color:var(--muted);margin-bottom:8px'>No checkpoints for "+curSite+". Add one below.</div>"}
   for(var i=0;i<as.length;i++){var a=as[i];
-    h+="<div class='admin-row'><div><div class='name'>"+a.id+(a.enabled?"":" <span class='disabled-tag'>OFF</span>")+"</div><div class='area'>"+a.name+" \u2014 "+a.group+"</div></div><button class='toggle"+(a.enabled?" on":"")+"' data-togid='"+a.id+"'></button></div>"}
+    h+="<div class='admin-row' style='gap:6px'><div style='flex:1;min-width:0'><div class='name'>"+a.id+(a.enabled?"":" <span class='disabled-tag'>OFF</span>")+"</div><div class='area'>"+a.name+" \u2014 "+a.group+"</div></div>";
+    h+="<button style='background:none;border:1px solid var(--border);color:var(--text2);font-size:9px;padding:3px 6px;border-radius:4px;cursor:pointer' data-editcp='"+i+"' title='Edit'><i class='fa-solid fa-pen'></i></button>";
+    h+="<button style='background:none;border:1px solid var(--err);color:var(--err);font-size:9px;padding:3px 6px;border-radius:4px;cursor:pointer' data-removecp='"+i+"' title='Remove'><i class='fa-solid fa-trash-can'></i></button>";
+    h+="<button class='toggle"+(a.enabled?" on":"")+"' data-togid='"+a.id+"'></button></div>";
+  }
+  // Add checkpoint form
+  h+="<div style='margin-top:10px;padding-top:10px;border-top:1px solid var(--border)'>";
+  h+="<div style='font-size:11px;font-weight:600;margin-bottom:6px'><i class='fa-solid fa-plus' style='color:var(--pri);margin-right:3px'></i>Add Checkpoint</div>";
+  h+="<div style='display:flex;gap:4px;flex-wrap:wrap;margin-bottom:4px'>";
+  h+="<input type='text' class='sx' id='newCpId' placeholder='ID (e.g. ER-3.1)' style='flex:1;min-width:70px;margin-bottom:0;font-size:11px'>";
+  h+="<input type='text' class='sx' id='newCpName' placeholder='Name (e.g. ER 3.1)' style='flex:1;min-width:80px;margin-bottom:0;font-size:11px'>";
+  h+="<input type='text' class='sx' id='newCpGroup' placeholder='Group (e.g. Electrical Rooms)' style='flex:1;min-width:90px;margin-bottom:0;font-size:11px'>";
+  h+="</div>";
+  h+="<button class='sub-btn' id='_addCp' style='font-size:11px;padding:8px;margin-top:0'><i class='fa-solid fa-plus'></i> Add Checkpoint</button>";
+  h+="<div style='font-size:9px;color:var(--text2);margin-top:3px'>New checkpoints automatically get their own QR code on the QR page.</div>";
+  h+="</div>";
   el.innerHTML=h;
+  // Attach handlers
   var actBtn=document.getElementById("_actAll");
   var deactBtn=document.getElementById("_deactAll");
   if(actBtn)actBtn.addEventListener("click",function(){toggleAllAreas(true)});
   if(deactBtn)deactBtn.addEventListener("click",function(){toggleAllAreas(false)});
-  // Attach individual toggle handlers
   var togBtns=el.querySelectorAll("[data-togid]");
-  for(var t=0;t<togBtns.length;t++){
-    togBtns[t].addEventListener("click",(function(id){return function(){togA(id)}})(togBtns[t].getAttribute("data-togid")));
-  }
+  for(var t=0;t<togBtns.length;t++){togBtns[t].addEventListener("click",(function(id){return function(){togA(id)}})(togBtns[t].getAttribute("data-togid")))}
+  // Edit buttons
+  var editBtns=el.querySelectorAll("[data-editcp]");
+  for(var e=0;e<editBtns.length;e++){editBtns[e].addEventListener("click",(function(idx){return function(){editCheckpoint(idx)}})(parseInt(editBtns[e].getAttribute("data-editcp"))))}
+  // Remove buttons
+  var rmBtns=el.querySelectorAll("[data-removecp]");
+  for(var r=0;r<rmBtns.length;r++){rmBtns[r].addEventListener("click",(function(idx){return function(){removeCheckpoint(idx)}})(parseInt(rmBtns[r].getAttribute("data-removecp"))))}
+  // Add checkpoint button
+  var addCpBtn=document.getElementById("_addCp");
+  if(addCpBtn)addCpBtn.addEventListener("click",addCheckpoint);
 }
 function togA(id){var as=siteAreas[curSite];for(var i=0;i<as.length;i++){if(as[i].id===id){as[i].enabled=!as[i].enabled;break}}saveAreaStates();rAdmin();rgg()}
 function toggleAllAreas(state){var as=siteAreas[curSite];for(var i=0;i<as.length;i++)as[i].enabled=state;saveAreaStates();rAdmin();rgg()}
+
+function editCheckpoint(idx){
+  var as=siteAreas[curSite];if(!as||idx>=as.length)return;
+  var a=as[idx];
+  var newId=prompt("Checkpoint ID:",a.id);if(!newId||!newId.trim())return;
+  var newName=prompt("Checkpoint Name:",a.name);if(!newName||!newName.trim())return;
+  var newGroup=prompt("Group:",a.group);if(!newGroup||!newGroup.trim())return;
+  as[idx].id=newId.trim();as[idx].name=newName.trim();as[idx].group=newGroup.trim();
+  saveCustomCheckpoints();saveAreaStates();rAdmin();rgg();
+}
+function removeCheckpoint(idx){
+  var as=siteAreas[curSite];if(!as||idx>=as.length)return;
+  var a=as[idx];
+  if(!confirm("Remove checkpoint "+a.id+" ("+a.name+") from "+curSite+"?\n\nThis will remove it from all views including QR codes."))return;
+  as.splice(idx,1);
+  saveCustomCheckpoints();saveAreaStates();rAdmin();rgg();
+}
+function addCheckpoint(){
+  var id=(document.getElementById("newCpId")||{}).value;if(!id||!id.trim()){alert("Enter a checkpoint ID.");return}
+  var name=(document.getElementById("newCpName")||{}).value;if(!name||!name.trim()){alert("Enter a checkpoint name.");return}
+  var group=(document.getElementById("newCpGroup")||{}).value||"Other";
+  var as=siteAreas[curSite];if(!as){as=[];siteAreas[curSite]=as}
+  // Check for duplicate ID
+  for(var i=0;i<as.length;i++){if(as[i].id===id.trim()){alert("Checkpoint ID '"+id.trim()+"' already exists for "+curSite+".");return}}
+  as.push({id:id.trim(),name:name.trim(),group:group.trim(),icon:"fa-building",enabled:true});
+  saveCustomCheckpoints();saveAreaStates();rAdmin();rgg();
+  alert("Checkpoint "+id.trim()+" added to "+curSite+".\n\nA QR code will be generated automatically on the QR page.");
+}
+function saveCustomCheckpoints(){
+  // Save the full checkpoint list per site to Firebase so edits/adds/removes persist
+  var data={};
+  for(var s in siteAreas){if(!siteAreas.hasOwnProperty(s))continue;
+    var as=siteAreas[s];var arr=[];
+    for(var i=0;i<as.length;i++){arr.push({id:as[i].id,name:as[i].name,group:as[i].group,icon:as[i].icon||"fa-building",enabled:as[i].enabled})}
+    data[s.replace(/\./g,"_")]=arr;
+  }
+  if(fbReady){try{fbDb.ref("config/customCheckpoints").set(data)}catch(e){}}
+  try{localStorage.setItem("customCheckpoints",JSON.stringify(data))}catch(e){}
+}
+
+// ===== Custom Site Management =====
+function addCustomSite(){
+  var nameEl=document.getElementById("newSiteName");
+  var tmplEl=document.getElementById("newSiteTemplate");
+  var pinEl=document.getElementById("newSitePIN");
+  var msgEl=document.getElementById("addSiteMsg");
+  var name=(nameEl.value||"").trim().toUpperCase();
+  var tmpl=tmplEl.value;
+  var pin=(pinEl.value||"").trim();
+  // Validate
+  if(!name||name.length<3){msgEl.style.display="block";msgEl.style.background="var(--err-bg)";msgEl.style.color="var(--err)";msgEl.textContent="Enter a valid site name (e.g. ARN73)";return}
+  if(SITES.indexOf(name)!==-1){msgEl.style.display="block";msgEl.style.background="var(--err-bg)";msgEl.style.color="var(--err)";msgEl.textContent="Site "+name+" already exists";return}
+  if(!pin||pin.length!==4||!/^\d{4}$/.test(pin)){msgEl.style.display="block";msgEl.style.background="var(--err-bg)";msgEl.style.color="var(--err)";msgEl.textContent="Enter a 4-digit PIN";return}
+  // Create siteAreas from template
+  var srcAreas=tmpl==="5X"?AREAS_5X:AREAS_6X;
+  var arr=[];for(var i=0;i<srcAreas.length;i++){var a=srcAreas[i];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}
+  siteAreas[name]=arr;
+  SITES.push(name);
+  SITE_PINS[name]=pin;
+  siteMgrs[name]="";
+  siteCEs[name]="";
+  // Save to Firebase
+  if(fbReady){
+    try{
+      var customSites={};
+      try{customSites=JSON.parse(localStorage.getItem("customSites")||"{}")}catch(e){}
+      customSites[name]={template:tmpl,pin:pin};
+      fbDb.ref("config/customSites").set(customSites);
+      localStorage.setItem("customSites",JSON.stringify(customSites));
+    }catch(e){}
+  }
+  // Clear form and show success
+  nameEl.value="";pinEl.value="";
+  msgEl.style.display="block";msgEl.style.background="var(--ok-bg)";msgEl.style.color="var(--ok)";
+  msgEl.innerHTML="<i class='fa-solid fa-circle-check'></i> Site <b>"+name+"</b> added with "+tmpl+" template (PIN: "+pin+")";
+  renderAll();rAdmin();rMgrs();
+  setTimeout(function(){msgEl.style.display="none"},5000);
+}
+
+function loadCustomSites(){
+  function applyCustom(data){
+    if(!data)return;
+    for(var name in data){
+      if(!data.hasOwnProperty(name))continue;
+      if(SITES.indexOf(name)!==-1)continue;// Already exists
+      var cs=data[name];var srcAreas=cs.template==="5X"?AREAS_5X:AREAS_6X;
+      var arr=[];for(var i=0;i<srcAreas.length;i++){var a=srcAreas[i];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}
+      siteAreas[name]=arr;SITES.push(name);
+      if(cs.pin)SITE_PINS[name]=cs.pin;
+      if(!siteMgrs[name])siteMgrs[name]="";
+      if(!siteCEs[name])siteCEs[name]="";
+    }
+  }
+  // Load from localStorage first
+  try{applyCustom(JSON.parse(localStorage.getItem("customSites")||"{}"))}catch(e){}
+  // Then from Firebase
+  if(fbReady){try{fbDb.ref("config/customSites").once("value",function(snap){var d=snap.val();if(d){applyCustom(d);localStorage.setItem("customSites",JSON.stringify(d));renderAll()}})}catch(e){}}
+}
+// Load custom sites on startup
+
+// Load custom checkpoint edits (adds, removes, renames)
+function loadCustomCheckpoints(){
+  function apply(data){
+    if(!data)return;
+    for(var s in data){if(!data.hasOwnProperty(s))continue;
+      var realSite=s.replace(/_/g,".");// reverse sanitization — but site names don't have dots, so this is safe
+      if(!siteAreas[s]&&!siteAreas[realSite])continue;
+      var site=siteAreas[s]?s:realSite;
+      siteAreas[site]=data[s];
+    }
+  }
+  try{apply(JSON.parse(localStorage.getItem("customCheckpoints")||"{}"))}catch(e){}
+  if(fbReady){try{fbDb.ref("config/customCheckpoints").once("value",function(snap){var d=snap.val();if(d){apply(d);renderAll()}})}catch(e){}}
+}
+try{loadCustomCheckpoints()}catch(e){}
+try{loadCustomSites()}catch(e){}
+
+// Attach Add Site button handler
+(function(){var btn=document.getElementById("btnAddSite");if(btn)btn.addEventListener("click",addCustomSite)})();
+
+// ===== Site Activation =====
+function renderSiteActivation(){
+  var el=document.getElementById("siteActivationList");if(!el)return;
+  var h="";
+  for(var i=0;i<SITES.length;i++){
+    var s=SITES[i];var active=siteActive[s]!==false;
+    h+="<div style='display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)'>";
+    h+="<div><div style='font-size:12px;font-weight:600'>"+s+"</div>";
+    h+="<div style='font-size:9px;color:"+(active?"var(--ok)":"var(--muted)")+"'>"+(active?"Active — visible to all":"Inactive — hidden from operators and managers")+"</div></div>";
+    h+="<button class='toggle"+(active?" on":"")+"' data-sitetoggle='"+s+"'></button>";
+    h+="</div>";
+  }
+  el.innerHTML=h;
+  var btns=el.querySelectorAll("[data-sitetoggle]");
+  for(var b=0;b<btns.length;b++){
+    btns[b].addEventListener("click",(function(site){return function(){toggleSiteActive(site)}})(btns[b].getAttribute("data-sitetoggle")));
+  }
+}
+function toggleSiteActive(site){
+  var wasInactive=siteActive[site]===false;
+  siteActive[site]=wasInactive?true:false;
+  saveSiteActive();
+  renderSiteActivation();
+  renderAll();
+  // Notify admin via Slack DM when a site is activated
+  if(wasInactive&&siteActive[site]===true){
+    var pin=SITE_PINS[site]||"Not set";
+    var fm=siteMgrs[site]||"Not assigned";
+    var ce=siteCEs[site]||"Not assigned";
+    var msg="\ud83c\udf89 *Site Activated: "+site+"*\n\nManager PIN: *"+pin+"*\nFacility Manager: "+fm+"\nChief Engineer: "+ce+"\n\nThis site is now visible to all operators and managers.\n\n:link: <"+QR_BASE_URL+"|Open Rounds Tracker>";
+    slackDM("almanath",msg);
+    alert("Site "+site+" activated!\n\nPIN: "+pin+"\nFM: "+fm+"\nCE: "+ce+"\n\nA Slack DM has been sent to you with these details.");
+  }
+}
+function saveSiteActive(){
+  if(fbReady){try{fbDb.ref("config/siteActive").set(siteActive)}catch(e){}}
+  try{localStorage.setItem("siteActive",JSON.stringify(siteActive))}catch(e){}
+}
+function loadSiteActive(){
+  try{var d=JSON.parse(localStorage.getItem("siteActive")||"{}");for(var k in d){if(d.hasOwnProperty(k))siteActive[k]=d[k]}}catch(e){}
+  if(fbReady){try{fbDb.ref("config/siteActive").once("value",function(snap){var d=snap.val();if(d){for(var k in d){if(d.hasOwnProperty(k))siteActive[k]=d[k]}renderAll()}})}catch(e){}}
+}
+try{loadSiteActive()}catch(e){}
 
 // Persist enabled/disabled state for all site areas
 function saveAreaStates(){
@@ -1475,8 +1703,9 @@ function rStatus(){
 function reportQRIssue(areaId,site){
   var desc=prompt("Report a QR code issue at "+areaId+" ("+site+")\n\nDescribe the problem (e.g. damaged, missing, can't scan):");
   if(!desc||!desc.trim())return;
-  var alias="";try{alias=localStorage.getItem("roundsAlias")||""}catch(e){}
+  var alias=getSavedAlias();
   if(!alias){alias=prompt("Enter your alias:");if(!alias||!alias.trim())return;alias=alias.trim().toLowerCase()}
+  saveAlias(alias);
   var report={areaId:areaId,site:site,description:desc.trim(),reportedBy:alias,ts:new Date().toISOString(),status:"open"};
   // Save to Firebase
   if(fbReady){try{fbDb.ref("qrIssues").push(report)}catch(e){}}
@@ -1543,6 +1772,7 @@ function showMgrUI(){
   // Proxy gets view access but not settings/admin
   if(mgrRole!=="proxy")document.getElementById("navSettings").style.display="flex";
   if(mgrRole==="admin")document.getElementById("navAdmin").style.display="flex";
+  if(mgrRole==="admin"){var asc=document.getElementById("addSiteCard");if(asc)asc.style.display="block";var sac=document.getElementById("siteActivationCard");if(sac)sac.style.display="block";renderSiteActivation()}
   document.getElementById("hdrMgrBtn").style.display="none";
   document.getElementById("hdrUserPill").style.display="flex";
   var lbl=mgrRole==="admin"?"Admin":(mgrSite||"");
@@ -1564,6 +1794,7 @@ function doMgrLogout(){
   document.getElementById("navAdmin").style.display="none";
   document.getElementById("navSettings").style.display="none";
   document.getElementById("navCalendar").style.display="none";
+  var asc=document.getElementById("addSiteCard");if(asc)asc.style.display="none";var sac=document.getElementById("siteActivationCard");if(sac)sac.style.display="none";
   document.getElementById("hdrMgrBtn").style.display="flex";
   document.getElementById("hdrUserPill").style.display="none";
   sp("status");
@@ -1828,7 +2059,11 @@ function checkProxyPIN(pin,callback){
 }
 
 // ===== Site-Locked Helpers =====
-function getVisibleSites(){return mgrSite?[mgrSite]:SITES}
+function getVisibleSites(){
+  if(mgrSite)return [mgrSite];
+  var active=[];for(var i=0;i<SITES.length;i++){if(siteActive[SITES[i]]!==false||mgrRole==="admin")active.push(SITES[i])}
+  return active;
+}
 
 function populateProxySiteSelect(){
   var sel=document.getElementById("proxySiteSelect2");if(!sel)return;
@@ -1907,6 +2142,9 @@ checkQRParams();
           fbReady=true;
           try{loadMgrAssignments()}catch(e){}
           try{loadAreaStates()}catch(e){}
+          try{loadSiteActive()}catch(e){}
+          try{loadCustomCheckpoints()}catch(e){}
+          try{loadCustomSites()}catch(e){}
           try{loadWeeklyReportEnabled()}catch(e){}
           // Check pending issue reminders (3-day follow-up)
           setTimeout(function(){try{checkIssueReminders()}catch(e){}},3000);
