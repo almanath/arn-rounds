@@ -286,7 +286,7 @@ textarea{width:100%;background:var(--bg);border:1px solid var(--border);border-r
         <button class="sub-btn" style="flex:1;min-width:90px;font-size:11px;padding:8px;margin-top:0;background:var(--bg);border:1px solid var(--border);color:var(--text)" onclick="document.getElementById('slackIdImportFile').click()"><i class="fa-solid fa-upload"></i> Import</button>
       </div>
       <input type="file" id="slackIdImportFile" accept=".csv,.json,.txt" style="display:none" onchange="importSlackIds(this)">
-      <div style="font-size:9px;color:var(--text2);margin-top:4px">Export saves a CSV of all alias → Member ID mappings. Import accepts a CSV (alias,memberId per line) or JSON file.</div>
+      <div style="font-size:9px;color:var(--text2);margin-top:4px">Export saves a JSON config file (bot token + all alias → Member ID mappings). Import accepts that config file, a flat JSON map, or a CSV (alias,memberId per line).</div>
     </div>
     <hr style="border:none;border-top:1px solid var(--border);margin:12px 0">
     <div style="margin-bottom:8px">
@@ -798,14 +798,19 @@ function saveSlackIds(){
 function exportSlackIds(){
   saveSlackIds();
   var ids=alertConfig.slackIds||{};
-  var rows=["alias,memberId"];
-  for(var alias in ids){if(ids.hasOwnProperty(alias))rows.push(alias+","+ids[alias])}
-  if(rows.length===1){alert("No Slack Member IDs to export yet.");return}
-  var csv=rows.join("\n");
-  var blob=new Blob([csv],{type:"text/csv"});
+  if(!Object.keys(ids).length){alert("No Slack Member IDs to export yet.");return}
+  var config={
+    _type:"rounds-tracker-slack-config",
+    cluster:"ARN",
+    exportedAt:new Date().toISOString(),
+    slackBotToken:alertConfig.slackBotToken||"",
+    slackIds:ids
+  };
+  var json=JSON.stringify(config,null,2);
+  var blob=new Blob([json],{type:"application/json"});
   var url=URL.createObjectURL(blob);
   var a=document.createElement("a");a.href=url;
-  a.download="slack-member-ids-"+new Date().toISOString().split("T")[0]+".csv";
+  a.download="slack-config-ARN-"+new Date().toISOString().split("T")[0]+".json";
   document.body.appendChild(a);a.click();document.body.removeChild(a);
   URL.revokeObjectURL(url);
 }
@@ -813,12 +818,16 @@ function importSlackIds(input){
   var file=input.files&&input.files[0];if(!file)return;
   var reader=new FileReader();
   reader.onload=function(e){
-    var text=e.target.result;var imported={};var count=0;
+    var text=e.target.result;var imported={};var count=0;var importedToken="";
     try{
       var trimmed=text.trim();
       if(trimmed.charAt(0)==="{"){
-        // JSON format {alias:memberId}
+        // JSON — full rounds-tracker-slack-config OR flat {alias:memberId}
         var obj=JSON.parse(trimmed);
+        if(obj.slackIds&&typeof obj.slackIds==="object"){
+          if(obj.slackBotToken)importedToken=(""+obj.slackBotToken).trim();
+          obj=obj.slackIds;
+        }
         for(var k in obj){if(obj.hasOwnProperty(k)){var al=(""+k).trim().toLowerCase();var v=(""+obj[k]).trim();if(al&&v){imported[al]=v;count++}}}
       } else {
         // CSV format: alias,memberId per line
@@ -837,10 +846,19 @@ function importSlackIds(input){
     var existing=alertConfig.slackIds||{};
     for(var a in imported){if(imported.hasOwnProperty(a))existing[a]=imported[a]}
     alertConfig.slackIds=existing;
+    // If the file included a bot token, offer to import it too
+    var tokenMsg="";
+    if(importedToken){
+      if(!alertConfig.slackBotToken||confirm("The file includes a Slack Bot Token. Replace the current token with the one from the file?")){
+        alertConfig.slackBotToken=importedToken;
+        var tf=document.getElementById("slackBotTokenInput");if(tf)tf.value=importedToken;
+        tokenMsg="\nBot token updated.";
+      }
+    }
     try{localStorage.setItem("alertConfig",JSON.stringify(alertConfig))}catch(e){}
     if(fbReady){try{fbDb.ref("config/alertConfig").set(alertConfig)}catch(e){}}
     renderSlackIdList();updateAlertStatus();
-    alert("Imported "+count+" Slack Member ID"+(count>1?"s":"")+". Total mapped: "+Object.keys(existing).length+".");
+    alert("Imported "+count+" Slack Member ID"+(count>1?"s":"")+". Total mapped: "+Object.keys(existing).length+"."+tokenMsg);
     input.value="";
   };
   reader.onerror=function(){alert("Could not read the file.");input.value=""};
