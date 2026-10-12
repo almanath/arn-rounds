@@ -365,8 +365,29 @@ var QR_SITE=null;var QR_CP=null;
 // ===== Firebase (safe stubs + deferred loading) =====
 var fbReady=false;var fbDb=null;var fbApp=null;
 var firebaseConfig={apiKey:"AIzaSyB4ISuO6fDwQCoUSOdFUOfIAmLK81UOqyM",authDomain:"arn-rounds-c4012.firebaseapp.com",databaseURL:"https://arn-rounds-c4012-default-rtdb.europe-west1.firebasedatabase.app",projectId:"arn-rounds-c4012",storageBucket:"arn-rounds-c4012.firebasestorage.app",messagingSenderId:"1089416867317",appId:"1:1089416867317:web:e771a459333dff20e904bc"};
-function fbSaveRound(r){if(!fbReady)return;try{fbDb.ref("rounds/"+r.site+"/"+r.id).set(r)}catch(e){}}
-function fbListenRounds(cb){if(!fbReady){if(cb)cb();return}try{fbDb.ref("rounds").on("value",function(snap){var data=snap.val();rounds=[];if(data){for(var site in data){if(!data.hasOwnProperty(site))continue;var sr=data[site];for(var id in sr){if(!sr.hasOwnProperty(id))continue;rounds.push(sr[id])}}}rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});try{rStatus()}catch(e){}try{uStats()}catch(e){}try{rHist()}catch(e){}try{if(mgrMode)rOverview()}catch(e){}if(cb)cb()})}catch(e){if(cb)cb()}}
+var pendingRounds=[];// rounds submitted before Firebase was ready
+function fbSaveRound(r){
+  if(!fbReady){
+    // Queue it — Firebase isn't connected yet. It will flush once ready.
+    pendingRounds.push(r);
+    try{localStorage.setItem("pendingRounds",JSON.stringify(pendingRounds))}catch(e){}
+    return;
+  }
+  try{fbDb.ref("rounds/"+r.site+"/"+r.id).set(r)}catch(e){}
+}
+function flushPendingRounds(){
+  if(!fbReady)return;
+  var pend=[];try{pend=JSON.parse(localStorage.getItem("pendingRounds")||"[]")}catch(e){}
+  // merge in-memory queue too
+  for(var i=0;i<pendingRounds.length;i++)pend.push(pendingRounds[i]);
+  var seen={};
+  for(var j=0;j<pend.length;j++){var r=pend[j];if(!r||!r.id||seen[r.id])continue;seen[r.id]=1;try{fbDb.ref("rounds/"+r.site+"/"+r.id).set(r)}catch(e){}}
+  pendingRounds=[];try{localStorage.removeItem("pendingRounds")}catch(e){}
+}
+function fbListenRounds(cb){if(!fbReady){if(cb)cb();return}try{fbDb.ref("rounds").on("value",function(snap){var data=snap.val();var fresh=[];var fbIds={};if(data){for(var site in data){if(!data.hasOwnProperty(site))continue;var sr=data[site];for(var id in sr){if(!sr.hasOwnProperty(id))continue;fresh.push(sr[id]);fbIds[sr[id].id]=1}}}
+/* Preserve any locally-submitted rounds not yet reflected in this snapshot (avoids a just-scanned round disappearing on refresh) */
+for(var k=0;k<rounds.length;k++){var lr=rounds[k];if(lr&&lr.id&&!fbIds[lr.id]){fresh.push(lr)}}
+rounds=fresh;rounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});try{rStatus()}catch(e){}try{uStats()}catch(e){}try{rHist()}catch(e){}try{if(mgrMode)rOverview()}catch(e){}if(cb)cb()})}catch(e){if(cb)cb()}}
 function fbArchiveOld(){if(!fbReady)return;try{var cutoff=Date.now()-(ARCHIVE_DAYS*24*60*60*1000);for(var i=0;i<rounds.length;i++){var r=rounds[i];if(new Date(r.ts).getTime()<cutoff){fbDb.ref("archive/"+r.site+"/"+r.id).set(r);fbDb.ref("rounds/"+r.site+"/"+r.id).remove()}}}catch(e){}}
 function fbLoadArchive(cb){if(!fbReady){if(cb)cb();return}try{fbDb.ref("archive").once("value",function(snap){var data=snap.val();archivedRounds=[];if(data){for(var site in data){if(!data.hasOwnProperty(site))continue;var sr=data[site];for(var id in sr){if(!sr.hasOwnProperty(id))continue;archivedRounds.push(sr[id])}}}archivedRounds.sort(function(a,b){return new Date(b.ts)-new Date(a.ts)});if(cb)cb()})}catch(e){if(cb)cb()}}
 
@@ -1199,43 +1220,61 @@ function addCustomSite(){
   setTimeout(function(){msgEl.style.display="none"},5000);
 }
 
-function loadCustomSites(){
-  function applyCustom(data){
-    if(!data)return;
-    for(var name in data){
-      if(!data.hasOwnProperty(name))continue;
-      if(SITES.indexOf(name)!==-1)continue;// Already exists
-      var cs=data[name];var srcAreas=cs.template==="5X"?AREAS_5X:AREAS_6X;
-      var arr=[];for(var i=0;i<srcAreas.length;i++){var a=srcAreas[i];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}
-      siteAreas[name]=arr;SITES.push(name);
-      if(cs.pin)SITE_PINS[name]=cs.pin;
-      if(!siteMgrs[name])siteMgrs[name]="";
-      if(!siteCEs[name])siteCEs[name]="";
-    }
+function applyCustomSitesData(data){
+  if(!data)return;
+  for(var name in data){
+    if(!data.hasOwnProperty(name))continue;
+    if(SITES.indexOf(name)!==-1)continue;// Already exists
+    var cs=data[name];var srcAreas=cs.template==="5X"?AREAS_5X:AREAS_6X;
+    var arr=[];for(var i=0;i<srcAreas.length;i++){var a=srcAreas[i];arr.push({id:a.id,name:a.name,group:a.group,icon:a.icon,enabled:a.enabled})}
+    siteAreas[name]=arr;SITES.push(name);
+    if(cs.pin)SITE_PINS[name]=cs.pin;
+    if(!siteMgrs[name])siteMgrs[name]="";
+    if(!siteCEs[name])siteCEs[name]="";
   }
-  // Load from localStorage first
-  try{applyCustom(JSON.parse(localStorage.getItem("customSites")||"{}"))}catch(e){}
-  // Then from Firebase
-  if(fbReady){try{fbDb.ref("config/customSites").once("value",function(snap){var d=snap.val();if(d){applyCustom(d);localStorage.setItem("customSites",JSON.stringify(d));renderAll()}})}catch(e){}}
+}
+function loadCustomSites(){
+  try{applyCustomSitesData(JSON.parse(localStorage.getItem("customSites")||"{}"))}catch(e){}
+  if(fbReady){try{fbDb.ref("config/customSites").once("value",function(snap){var d=snap.val();if(d){applyCustomSitesData(d);localStorage.setItem("customSites",JSON.stringify(d));renderAll()}})}catch(e){}}
 }
 // Load custom sites on startup
 
 // Load custom checkpoint edits (adds, removes, renames)
-function loadCustomCheckpoints(){
-  function apply(data){
-    if(!data)return;
-    for(var s in data){if(!data.hasOwnProperty(s))continue;
-      var realSite=s.replace(/_/g,".");// reverse sanitization — but site names don't have dots, so this is safe
-      if(!siteAreas[s]&&!siteAreas[realSite])continue;
-      var site=siteAreas[s]?s:realSite;
-      siteAreas[site]=data[s];
-    }
+function applyCustomCheckpointsData(data){
+  if(!data)return;
+  for(var s in data){if(!data.hasOwnProperty(s))continue;
+    var realSite=s.replace(/_/g,".");// site names have no dots, so this is a no-op for them
+    if(!siteAreas[s]&&!siteAreas[realSite])continue;
+    var site=siteAreas[s]?s:realSite;
+    siteAreas[site]=data[s];
   }
-  try{apply(JSON.parse(localStorage.getItem("customCheckpoints")||"{}"))}catch(e){}
-  if(fbReady){try{fbDb.ref("config/customCheckpoints").once("value",function(snap){var d=snap.val();if(d){apply(d);renderAll()}})}catch(e){}}
+}
+function loadCustomCheckpoints(){
+  try{applyCustomCheckpointsData(JSON.parse(localStorage.getItem("customCheckpoints")||"{}"))}catch(e){}
+  if(fbReady){try{fbDb.ref("config/customCheckpoints").once("value",function(snap){var d=snap.val();if(d){applyCustomCheckpointsData(d);renderAll()}})}catch(e){}}
 }
 try{loadCustomCheckpoints()}catch(e){}
 try{loadCustomSites()}catch(e){}
+
+// Load all site/checkpoint config from Firebase in the correct dependency order:
+// 1) custom sites (adds extra sites)  2) custom checkpoints (replace per-site lists)
+// 3) area enabled-states  4) site activation. Each step waits for the previous
+// Firebase read so later steps apply on top of earlier ones, then re-render once.
+function loadConfigChain(){
+  if(!fbReady){try{loadCustomSites();loadCustomCheckpoints();loadAreaStates();loadSiteActive()}catch(e){}return}
+  function step(ref,apply,next){
+    try{fbDb.ref(ref).once("value",function(snap){try{apply(snap.val())}catch(e){}next()})}catch(e){next()}
+  }
+  step("config/customSites",function(d){if(d&&typeof applyCustomSitesData==="function")applyCustomSitesData(d)},function(){
+    step("config/customCheckpoints",function(d){if(d&&typeof applyCustomCheckpointsData==="function")applyCustomCheckpointsData(d)},function(){
+      step("config/areaStates",function(d){if(d&&typeof applyAreaStatesData==="function")applyAreaStatesData(d)},function(){
+        step("config/siteActive",function(d){if(d){for(var k in d){if(d.hasOwnProperty(k))siteActive[k]=d[k]}}},function(){
+          try{renderAll()}catch(e){}
+        });
+      });
+    });
+  });
+}
 
 // Attach Add Site button handler
 (function(){var btn=document.getElementById("btnAddSite");if(btn)btn.addEventListener("click",addCustomSite)})();
@@ -1296,19 +1335,19 @@ function saveAreaStates(){
   if(fbReady){try{fbDb.ref("config/areaStates").set(data)}catch(e){}}
   try{localStorage.setItem("areaStates",JSON.stringify(data))}catch(e){}
 }
-function loadAreaStates(){
-  function applyStates(data){
-    if(!data)return;
-    for(var s in data){if(!data.hasOwnProperty(s)||!siteAreas[s])continue;
-      var states=data[s];var as=siteAreas[s];
-      for(var i=0;i<as.length;i++){var safeId=as[i].id.replace(/\./g,"_");
-        if(states.hasOwnProperty(safeId))as[i].enabled=states[safeId];else if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
-    }
+function applyAreaStatesData(data){
+  if(!data)return;
+  for(var s in data){if(!data.hasOwnProperty(s)||!siteAreas[s])continue;
+    var states=data[s];var as=siteAreas[s];
+    for(var i=0;i<as.length;i++){var safeId=as[i].id.replace(/\./g,"_");
+      if(states.hasOwnProperty(safeId))as[i].enabled=states[safeId];else if(states.hasOwnProperty(as[i].id))as[i].enabled=states[as[i].id]}
   }
+}
+function loadAreaStates(){
   // Always apply localStorage first (instant)
-  try{applyStates(JSON.parse(localStorage.getItem("areaStates")||"{}"))}catch(e){}
+  try{applyAreaStatesData(JSON.parse(localStorage.getItem("areaStates")||"{}"))}catch(e){}
   // Then load from Firebase if available (overrides localStorage)
-  if(fbReady){try{fbDb.ref("config/areaStates").once("value",function(snap){var d=snap.val();if(d){applyStates(d);renderAll()}})}catch(e){}}
+  if(fbReady){try{fbDb.ref("config/areaStates").once("value",function(snap){var d=snap.val();if(d){applyAreaStatesData(d);renderAll()}})}catch(e){}}
 }
 // Load area states immediately on startup (before Firebase)
 try{loadAreaStates()}catch(e){}
@@ -1886,6 +1925,11 @@ function setOverSite(s){if(!mgrSite){curSite=s}renderOverSiteSel();rOverview()}
 
 function rOverview(){
   var site=mgrSite||curSite;
+  // Never show a deactivated site in the Overview — fall back to first active site
+  if(siteActive[site]===false){
+    var vs=getVisibleSites();
+    if(vs.length){site=vs[0];curSite=site}
+  }
   var shift=getShift();var today=getRoundDate();
   var os2=document.getElementById("overShift");
   if(os2)os2.innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+(shift==="day"?"fa-sun":"fa-moon")+"'></i>"+(shift==="day"?"Day Shift":"Night Shift")+"</div><span style='font-size:11px;color:var(--text2);margin-left:8px'>"+site+"</span>";
@@ -2136,7 +2180,13 @@ function checkProxyPIN(pin,callback){
 // ===== Site-Locked Helpers =====
 function getVisibleSites(){
   if(mgrSite)return [mgrSite];
-  var active=[];for(var i=0;i<SITES.length;i++){if(siteActive[SITES[i]]!==false||mgrRole==="admin")active.push(SITES[i])}
+  // Admin sees ALL sites only while on the Manage page (so they can activate/deactivate).
+  // Everywhere else (Status, Overview, QR, History, Calendar) only ACTIVE sites show.
+  var curPage=document.querySelector(".page.active");
+  var onManage=curPage&&curPage.id==="page-admin";
+  var showAll=(mgrRole==="admin"&&onManage);
+  var active=[];
+  for(var i=0;i<SITES.length;i++){if(showAll||siteActive[SITES[i]]!==false)active.push(SITES[i])}
   return active;
 }
 
@@ -2215,11 +2265,12 @@ checkQRParams();
           fbApp=firebase.initializeApp(firebaseConfig);
           fbDb=firebase.database();
           fbReady=true;
+          try{flushPendingRounds()}catch(e){}
           try{loadMgrAssignments()}catch(e){}
-          try{loadAreaStates()}catch(e){}
-          try{loadSiteActive()}catch(e){}
-          try{loadCustomCheckpoints()}catch(e){}
-          try{loadCustomSites()}catch(e){}
+          // IMPORTANT: load order matters. Custom checkpoints REPLACE the checkpoint
+          // list for a site, so they must load FIRST. Then area enabled-states, then
+          // site activation. Chain them so async Firebase callbacks apply in order.
+          try{loadConfigChain()}catch(e){}
           try{loadWeeklyReportEnabled()}catch(e){}
           // Check pending issue reminders (3-day follow-up)
           setTimeout(function(){try{checkIssueReminders()}catch(e){}},3000);
@@ -2227,10 +2278,9 @@ checkQRParams();
           try{fbDb.ref("config/alertConfig").once("value",function(snap){var d=snap.val();if(d){alertConfig=d;loadAlertConfig()}})}catch(e){}
           // Sync with Firebase - listen for real-time updates
           fbListenRounds(function(){
-            if(rounds.length===0){
-              seed();
-              for(var i=0;i<rounds.length;i++){fbSaveRound(rounds[i])}
-            }
+            // NOTE: Do NOT auto-seed demo data here — it previously overwrote real
+            // rounds whenever Firebase briefly reported empty. Real submissions flow
+            // in via saveRound()/fbSaveRound() and the live listener.
             // Don't reset page if user is on the form
             var curPage=document.querySelector(".page.active");
             if(!curPage||curPage.id!=="page-form"){renderAll()}
