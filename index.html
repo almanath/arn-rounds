@@ -1610,6 +1610,7 @@ function rCalendar(){
 function showCalDetail(dateStr,shift){
   var detail=document.getElementById("calDetail");if(!detail)return;
   var areas=siteAreas[calSite];if(!areas)return;
+  var isAdmin=(mgrRole==="admin");
   var shiftLabel=shift==="day"?"Day Shift":"Night Shift";
   var h="<div class='card' style='border-color:var(--err)'><div style='font-size:12px;font-weight:600;margin-bottom:8px'><i class='fa-solid fa-triangle-exclamation' style='color:var(--err);margin-right:4px'></i>Missed Rounds — "+dateStr+" "+shiftLabel+"</div>";
   var count=0;
@@ -1622,13 +1623,59 @@ function showCalDetail(dateStr,shift){
     }
     if(!found){
       count++;
-      h+="<div style='display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)'><i class='fa-regular fa-circle' style='color:var(--err);font-size:10px'></i><span style='font-size:11px;font-weight:600'>"+a.id+"</span><span style='font-size:10px;color:var(--muted)'>"+a.name+"</span></div>";
+      h+="<div style='display:flex;align-items:center;gap:6px;padding:5px 0;border-bottom:1px solid var(--border)'><i class='fa-regular fa-circle' style='color:var(--err);font-size:10px'></i><span style='font-size:11px;font-weight:600'>"+a.id+"</span><span style='font-size:10px;color:var(--muted);flex:1'>"+a.name+"</span>"+(isAdmin?"<button data-clearcp='"+a.id+"' style='background:var(--ok-bg);border:1px solid var(--ok);color:var(--ok);font-size:9px;padding:3px 8px;border-radius:4px;cursor:pointer;white-space:nowrap'><i class='fa-solid fa-check' style='font-size:8px'></i> Clear</button>":"")+"</div>";
     }
   }
   if(count===0)h+="<div style='font-size:11px;color:var(--ok)'>All rounds completed!</div>";
+  else if(isAdmin){
+    h+="<div style='margin-top:10px;text-align:right'><button data-clearall style='background:var(--pri);border:none;color:#fff;font-size:10px;font-weight:600;padding:6px 12px;border-radius:4px;cursor:pointer'><i class='fa-solid fa-list-check' style='font-size:9px;margin-right:3px'></i> Clear all "+count+" missed</button></div>";
+  }
   h+="</div>";
   detail.innerHTML=h;
+  // Admin: attach "Clear" handlers so a past/missed shift can be submitted retroactively
+  if(mgrRole==="admin"){
+    var clrBtns=detail.querySelectorAll("[data-clearcp]");
+    for(var cb2=0;cb2<clrBtns.length;cb2++){
+      clrBtns[cb2].addEventListener("click",(function(areaId){return function(){clearPastRound(dateStr,shift,areaId)}})(clrBtns[cb2].getAttribute("data-clearcp")));
+    }
+    var clrAll=detail.querySelector("[data-clearall]");
+    if(clrAll)clrAll.addEventListener("click",function(){clearPastRound(dateStr,shift,null)});
+  }
   detail.scrollIntoView({behavior:"smooth"});
+}
+
+// Admin-only: retroactively submit (clear) a round for a PAST shift from the Calendar.
+// Backdates the timestamp to the chosen date so getRoundDateFromTS()/shift matching place
+// it on the right day+shift. If areaId is null, clears ALL missed checkpoints for that shift.
+function clearPastRound(dateStr,shift,areaId){
+  if(mgrRole!=="admin")return;
+  var areas=siteAreas[calSite];if(!areas)return;
+  var alias=getSavedAlias()||"admin";
+  // Build a backdated timestamp: 12:00 for day shift, 22:00 for night shift (both keep the date)
+  var parts=dateStr.split("-");
+  var hour=shift==="day"?12:22;
+  var dt=new Date(parseInt(parts[0],10),parseInt(parts[1],10)-1,parseInt(parts[2],10),hour,0,0);
+  var tsISO=dt.toISOString();
+  var targets=[];
+  for(var i=0;i<areas.length;i++){
+    var a=areas[i];if(!a.enabled)continue;
+    if(areaId&&a.id!==areaId)continue;
+    // skip ones already completed for this date+shift
+    var already=false;
+    for(var j=0;j<rounds.length;j++){var r=rounds[j];if(r.site===calSite&&r.areaId===a.id&&r.shift===shift&&getRoundDateFromTS(r.ts)===dateStr){already=true;break}}
+    if(!already)targets.push(a);
+  }
+  if(!targets.length){return}
+  var label=shift==="day"?"Day":"Night";
+  var msg=areaId?("Clear "+areaId+" for "+dateStr+" ("+label+" shift)?"):("Clear ALL "+targets.length+" missed checkpoint(s) for "+dateStr+" ("+label+" shift)?");
+  if(!confirm(msg+"\n\nThis records a round backdated to that shift, submitted by "+alias+".")){return}
+  for(var t=0;t<targets.length;t++){
+    var a2=targets[t];
+    var newRound={id:Date.now().toString(36)+Math.floor(Math.random()*1000).toString(36),site:calSite,areaId:a2.id,areaName:a2.name,group:a2.group,alias:alias,ts:tsISO,shift:shift,status:"ok",notes:"Cleared retroactively via calendar by "+alias};
+    saveRound(newRound);
+  }
+  try{rCalendar()}catch(e){}
+  try{showCalDetail(dateStr,shift)}catch(e){}
 }
 
 // ===== Submitted Issues Page =====
@@ -1787,6 +1834,7 @@ function rStatus(){
   if(sb)sb.innerHTML="<div class='shift-badge "+shift+"'><i class='fa-solid "+(shift==="day"?"fa-sun":"fa-moon")+"'></i>"+(shift==="day"?"Day Shift (07:00\u201319:00)":"Night Shift (19:00\u201307:00)")+"</div>";
 
   var areas=siteAreas[curSite];var done=0;var total=0;var issueCount=0;var h="";
+  var isAdmin=(mgrRole==="admin");
   for(var i=0;i<areas.length;i++){
     var a=areas[i];if(!a.enabled)continue;total++;
     var completed=false;var hasIssue=false;
@@ -1797,7 +1845,9 @@ function rStatus(){
     var icon=completed?(hasIssue?"<i class='fa-solid fa-triangle-exclamation' style='color:var(--warn)'></i>":"<i class='fa-solid fa-circle-check' style='color:var(--ok)'></i>"):"<i class='fa-regular fa-circle' style='color:var(--muted)'></i>";
     var statusTxt=completed?(hasIssue?"Issue reported":"Done"):"Pending";
     var statusClr=completed?(hasIssue?"var(--warn)":"var(--ok)"):"var(--muted)";
-    h+="<div class='card' style='display:flex;align-items:center;gap:10px;padding:10px'><div style='font-size:16px'>"+icon+"</div><div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div></div><div style='font-size:10px;color:"+statusClr+";font-weight:600'>"+statusTxt+"</div>";
+    var cardCursor=isAdmin?";cursor:pointer":"";
+    var adminHint=isAdmin?"<div style='font-size:8px;color:var(--pri);margin-top:1px'><i class='fa-solid fa-hand-pointer' style='font-size:7px'></i> Tap to submit</div>":"";
+    h+="<div class='card'"+(isAdmin?" data-adminsubmit='"+a.id+"'":"")+" style='display:flex;align-items:center;gap:10px;padding:10px"+cardCursor+"'><div style='font-size:16px'>"+icon+"</div><div style='flex:1;min-width:0'><div style='font-size:12px;font-weight:600'>"+a.id+"</div><div style='font-size:10px;color:var(--muted)'>"+a.name+"</div>"+adminHint+"</div><div style='font-size:10px;color:"+statusClr+";font-weight:600'>"+statusTxt+"</div>";
     h+="<button data-qrissue='"+a.id+"' data-qrsite='"+curSite+"' style='background:none;border:1px solid var(--border);color:var(--muted);font-size:9px;padding:3px 6px;border-radius:4px;cursor:pointer;margin-left:6px;white-space:nowrap' title='Report a problem with this QR code'><i class='fa-solid fa-qrcode'></i> <i class='fa-solid fa-triangle-exclamation' style='font-size:7px'></i></button></div>";
   }
   var pct=total>0?Math.round(done/total*100):0;
@@ -1806,6 +1856,16 @@ function rStatus(){
   var sl=document.getElementById("statusList");if(sl)sl.innerHTML=h;
   // Attach QR issue report handlers
   if(sl){
+    // Admin: tap a checkpoint card to open the submit form directly (no QR scan needed)
+    if(isAdmin){
+      var subCards=sl.querySelectorAll("[data-adminsubmit]");
+      for(var sc=0;sc<subCards.length;sc++){
+        subCards[sc].addEventListener("click",(function(areaId){return function(e){
+          if(e.target.closest("[data-qrissue]"))return;// don't trigger when tapping the QR-issue button
+          oForm(areaId);
+        }})(subCards[sc].getAttribute("data-adminsubmit")));
+      }
+    }
     var qrBtns=sl.querySelectorAll("[data-qrissue]");
     for(var q=0;q<qrBtns.length;q++){
       qrBtns[q].addEventListener("click",(function(areaId,site){return function(e){e.stopPropagation();reportQRIssue(areaId,site)}})(qrBtns[q].getAttribute("data-qrissue"),qrBtns[q].getAttribute("data-qrsite")));
